@@ -1,0 +1,9 @@
+streamlit
+pandas
+plotly
+dotenv
+pycountry
+requests
+oauth2client
+gspread
+sentry-sdk
