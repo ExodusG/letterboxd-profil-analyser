@@ -116,7 +116,7 @@ def getMovie(all_movies, dfF, sheet):
 
     if not df_errors.empty:
         cleaned_rows = df_errors.applymap(sanitize).values.tolist()
-        #error_sheet.append_rows(cleaned_rows)
+        error_sheet.append_rows(cleaned_rows)
 
     if len(df_movie) != 0:
         df_movie['Ratings'] = df_movie['Ratings'].apply(lambda x: json.dumps(x) if isinstance(x, list) else x)
