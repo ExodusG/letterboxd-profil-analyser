@@ -60,8 +60,8 @@ with st.spinner("Set-up...", show_time=False):
 temp_dir = tempfile.TemporaryDirectory()
 temp_name=temp_dir.name
 
-api_key = st.secrets['API_KEY']
 base_url = 'http://www.omdbapi.com/'
+api_key_array=st.secrets['API_KEY_ARRAY']
 
 if "uploader_key" not in st.session_state:
     st.session_state["uploader_key"] = 1
@@ -78,7 +78,7 @@ def sanitize(value):
 
 def getMovie(all_movies, dfF, sheet):
     df_errors = pd.DataFrame(columns=["filename", "error", *dfF.columns])
-    progress_text = "Get movie data. Please wait."
+    progress_text = "Get movie data. Please wait. (It's a free project, so there might be data limitations or errors in the dataset.)"
     my_bar = st.progress(0, text=progress_text)
     df_movie = pd.DataFrame()
 
@@ -86,7 +86,8 @@ def getMovie(all_movies, dfF, sheet):
         zip(all_movies['Title'].dropna().astype(str), all_movies['Year'].dropna())
     )
     i = 0
-
+    api_key=api_key_array[0]
+    key_index=0
     # Itérer sur les lignes de dfF pour comparer (Name, Year)
     for _, row in dfF.iterrows():
         title_year = (row['Name'], row['Year'])
@@ -98,6 +99,12 @@ def getMovie(all_movies, dfF, sheet):
                     #sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
                     #print(row)
                     df_errors.loc[len(df_errors)] = [uploaded_files.name, movie_data['Error'], *row.values]
+                        #if too much movie we switch the api_key
+                    if movie_data['Error']=="Request limit reached!":
+                        key_index=key_index+1
+                        if key_index < len(api_key_array):
+                            print(key_index)
+                            apikey=api_key_array[key_index]
                 else:
                     df_movie = pd.concat([df_movie, pd.DataFrame([movie_data])], ignore_index=True)
             except Exception as e:
@@ -274,6 +281,10 @@ temp_dir.cleanup()
 #st.sidebar.title("About")
 st.info(
     """
-    This app is maintained by [Exodus](https://exodusg.github.io/) and [Montro](https://github.com/Montr0-0). 
+    Follow me on Letteboxd : [exodus_](https://letterboxd.com/exodus_/)
+
+    This app is maintained by [Exodus](https://exodusg.github.io/) and [Montro](https://github.com/Montr0-0).
+    
+    Report a bug : [send a email with your zipfile](mailto:lelan.quentin56@gmail.com) 
 """
 )
