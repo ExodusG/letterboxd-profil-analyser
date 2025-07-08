@@ -5,7 +5,11 @@ import requests
 import plotly.graph_objects as go
 import pycountry
 import streamlit as st
-
+from wordcloud import WordCloud
+from stop_words import get_stop_words
+import matplotlib.pyplot as plt
+import string
+import unicodedata
 
 def computeRuntime(df):
     df['Runtime']=df['Runtime'].replace('nan', np.nan)
@@ -324,3 +328,29 @@ def comparaison_rating(rating_df):
     fig.update_layout(barmode='group', showlegend=True)
 
     st.plotly_chart(fig)
+
+def clean_reviews(reviews_df):
+    def clean_text(text):
+        if not isinstance(text, str):
+            return ''
+        # Minuscule
+        text = text.lower()
+        # Remplacer apostrophes et retours à la ligne
+        text = text.replace("'", " ").replace("\n", " ")
+        # Supprimer ponctuation
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        # Normaliser et supprimer accents
+        text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8')
+        return text.strip()
+    
+    return reviews_df['Review'].apply(clean_text)
+
+def generate_wordcloud(corpus):
+    stopwords = get_stop_words('fr')
+    wordcloud = WordCloud(stopwords=stopwords,width=800, height=400, background_color="black",max_words=150)
+    text = " ".join(corpus)
+    wc=wordcloud.generate(text)
+    fig, ax = plt.subplots(figsize = (20, 10),facecolor='k')
+    ax.imshow(wc, interpolation = 'bilinear')
+    plt.axis('off')
+    st.pyplot(fig)

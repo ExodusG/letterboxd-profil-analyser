@@ -116,7 +116,7 @@ def getMovie(all_movies, dfF, sheet):
 
     if not df_errors.empty:
         cleaned_rows = df_errors.applymap(sanitize).values.tolist()
-        error_sheet.append_rows(cleaned_rows)
+        #error_sheet.append_rows(cleaned_rows)
 
     if len(df_movie) != 0:
         df_movie['Ratings'] = df_movie['Ratings'].apply(lambda x: json.dumps(x) if isinstance(x, list) else x)
@@ -181,11 +181,12 @@ if uploaded_files is not None:
         watchlist=pd.read_csv(temp_name+'/watchlist.csv')
         watched=pd.read_csv(temp_name+'/watched.csv')
         rating=pd.read_csv(temp_name+'/ratings.csv')
-
+        reviews=pd.read_csv(temp_name+'/reviews.csv')
 
         watchlist = clean_year(watchlist)
         watched=clean_year(watched)
         rating=clean_year(rating)
+        corpus=clean_reviews(reviews)
 
         #all_movies=pd.read_csv('./data/all_movies_data.csv')
         all_movies = pd.DataFrame(data)
@@ -267,6 +268,9 @@ if uploaded_files is not None:
             rating_actor(rating_df)
             genre_rating(rating_df)
             comparaison_rating(rating_df)
+            if(len(corpus)!=0):
+                st.header("A wordcloud with your reviews", divider='blue')
+                generate_wordcloud(corpus)
 
     except zipfile.BadZipFile:
         st.session_state["uploader_key"] += 1
