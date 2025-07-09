@@ -20,7 +20,7 @@ st.set_page_config(
 st.markdown("""
 # 🎬 Welcome to our **Letterboxd Profile Analyzer**!
 
-With just a few clicks, you'll discover your movie habits and get interesting insights about your film preferences.  
+With just a few clicks, you'll discover your movie habits and get interesting insights about your film preferences, all your letterboxd stat !.  
 
 🚀 This is just the first version of the project — many improvements are planned, including a feature to compare two profiles!
 
@@ -232,6 +232,7 @@ if uploaded_files is not None:
                 st.write(top)
             cinephile(watch_df,q1,q2,q3,"a")
             decade(watch_df)
+            runtime_bar(watch_df)
             mapW(watch_df)
         #WATCHLIST
         with tab2:
@@ -255,6 +256,7 @@ if uploaded_files is not None:
                 st.write(top)
             cinephile(watchlist_df,q1,q2,q3,"b")
             decade(watchlist_df)
+            runtime_bar(watchlist_df)
             mapW(watchlist_df)
         #RATING
         with tab3:

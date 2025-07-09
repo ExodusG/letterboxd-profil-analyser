@@ -346,7 +346,7 @@ def clean_reviews(reviews_df):
     return reviews_df['Review'].apply(clean_text)
 
 def generate_wordcloud(corpus):
-    stopwords = get_stop_words('fr')
+    stopwords = set(get_stop_words('fr')) | set(get_stop_words('en'))
     wordcloud = WordCloud(stopwords=stopwords,width=800, height=400, background_color="black",max_words=150)
     text = " ".join(corpus)
     wc=wordcloud.generate(text)
@@ -354,3 +354,20 @@ def generate_wordcloud(corpus):
     ax.imshow(wc, interpolation = 'bilinear')
     plt.axis('off')
     st.pyplot(fig)
+
+def runtime_bar(df):
+    df['Runtime']=df['Runtime'].str.split(' ').str[0]
+    df = df[df['Runtime'].notna() & ~df['Runtime'].str.contains('s', case=False, na=True)] #remove the runtime in seconde
+    df['Runtime'] = df['Runtime'].apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
+    df = df[(df['Runtime'] >= 20) & (df['Runtime'] <= 230)]
+    bins = list(range(20, 241, 10))  # 20 to 240 by 10
+    labels = [f'{i}-{i+9}' for i in bins[:-1]]
+    df['RuntimeBin'] = pd.cut(df['Runtime'], bins=bins, labels=labels, right=True, include_lowest=True)
+
+ 
+    runtime_counts = df['RuntimeBin'].value_counts().sort_index().reset_index()
+    runtime_counts.columns = ['RuntimeBin', 'Count']
+
+    fig = px.bar(runtime_counts, x='RuntimeBin', y='Count', title='Runtime of movie',
+                 labels={'RuntimeBin': 'Runtime (min)', 'Count': 'Number of movie'})
+    st.plotly_chart(fig)
