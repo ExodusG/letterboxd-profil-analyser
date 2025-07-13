@@ -104,7 +104,7 @@ def getMovie(all_movies, dfF, sheet):
                         key_index=key_index+1
                         if key_index < len(api_key_array):
                             print(key_index)
-                            apikey=api_key_array[key_index]
+                            api_key=api_key_array[key_index]
                 else:
                     df_movie = pd.concat([df_movie, pd.DataFrame([movie_data])], ignore_index=True)
             except Exception as e:
