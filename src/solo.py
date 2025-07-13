@@ -340,14 +340,18 @@ def clean_reviews(reviews_df):
         # Supprimer ponctuation
         text = text.translate(str.maketrans('', '', string.punctuation))
         # Normaliser et supprimer accents
-        text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8')
+        #text = unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode('utf-8')
+        #supprime les mots en dessous de 3 char
+        words = text.split()
+        words = [word for word in words if len(word) >= 3]
+        text = ' '.join(words)
         return text.strip()
     
     return reviews_df['Review'].apply(clean_text)
 
 def generate_wordcloud(corpus):
     stopwords = set(get_stop_words('fr')) | set(get_stop_words('en'))
-    wordcloud = WordCloud(stopwords=stopwords,width=800, height=400, background_color="black",max_words=150)
+    wordcloud = WordCloud(stopwords=stopwords,width=800, height=400, background_color="black",max_words=120)
     text = " ".join(corpus)
     wc=wordcloud.generate(text)
     fig, ax = plt.subplots(figsize = (20, 10),facecolor='k')
