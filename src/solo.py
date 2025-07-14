@@ -11,6 +11,20 @@ import matplotlib.pyplot as plt
 import string
 import unicodedata
 
+PALETTE = {
+    'orange' : '#FF8C00',
+    'vert' : '#00E054',
+    'bleu' : '#40BCF4',
+    'blanc' : '#FFFFFF'
+}
+
+def extract_year(df,year):
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+
+    # 2. Filtrage par année
+    df_year = df[df['Date'].dt.year == year]
+    return df_year
+
 def computeRuntime(df):
     df['Runtime']=df['Runtime'].replace('nan', np.nan)
     df = df.dropna(subset=['Runtime'])
@@ -69,17 +83,71 @@ def movie_per_year(df):
     st.plotly_chart(fig)
 
 def genre(df):
-    df_genres = df['Genre'].dropna().str.split(', ')
 
-    df_genres_exploded = df_genres.explode()
-    genre_counts = df_genres_exploded.value_counts().reset_index()
-    genre_counts.columns = ['Genre', 'Number of movie']
-    fig = px.bar(genre_counts, x='Genre', y='Number of movie', 
-                title='Number of films by genre', 
-                text='Number of movie')
+    df_genres = df[['Name', 'Genre']].dropna()
+    df_genres['Genre'] = df_genres['Genre'].str.split(', ')
+    df_genres_exploded = df_genres.explode('Genre')
 
-    fig.update_layout(uniformtext_minsize=8, uniformtext_mode='hide', showlegend=False)
-    st.plotly_chart(fig)
+    genre_movies = (
+        df_genres_exploded
+        .groupby('Genre')
+        .agg({'Name': lambda x: sorted(set(x)), 'Genre': 'count'})
+        .rename(columns={'Genre': 'Number of movie', 'Name': 'Movies'})
+        .reset_index()
+        .sort_values('Number of movie', ascending=False)
+    )
+
+    # Générer une colonne texte pour le hover
+    def make_movies_text(movie_list):
+        # Limite l'affichage à 10 films max par genre (pour la lisibilité)
+        movies = movie_list[:10]
+        movies_text = "<br>".join(f"• {m}" for m in movies)
+        if len(movie_list) > 10:
+            movies_text += f"<br><span style='color:#888; font-size:12px;'>...and {len(movie_list) - 20} more</span>"
+        return movies_text
+
+    genre_movies['MoviesText'] = genre_movies['Movies'].apply(make_movies_text)
+
+    fig = px.bar(
+        genre_movies,
+        x='Genre',
+        y='Number of movie',
+        text='Number of movie',
+        color='Genre',
+        color_discrete_sequence=[PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']],
+        hover_data={"MoviesText": True, "Number of movie": False, "Genre": False, "Movies": False},
+        title='🎬 Number of films by genre',
+        custom_data=["MoviesText"]
+    )
+
+    # Affiche le hover avec la liste des films
+    fig.update_traces(
+        hovertemplate='<b>%{x}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
+        marker_line_width=1.5,
+        marker_line_color="#444",
+        textfont_size=14
+    )
+
+    fig.update_layout(
+        showlegend=False,
+        uniformtext_minsize=10,
+        uniformtext_mode='show',
+        title_font_size=22,
+        title_x=0.5,
+        margin=dict(t=80, b=60),
+        xaxis_tickangle=-30,
+        xaxis=dict(
+            tickfont=dict(size=14),
+            title_font=dict(size=16)
+        ),
+        yaxis=dict(
+            title_font=dict(size=16),
+            tickfont=dict(size=14)
+        ),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+#
 
 def director(df):
     # possibilité d'avoir plusieurs réalisateurs, prend le premier ou comtpe les deux séparément ?
@@ -161,15 +229,15 @@ def decade(df):
     fig=px.bar(years, x='Year', y='Number of Movies', title='Films by decade',text='Number of Movies')
     st.plotly_chart(fig)
 
-def mapW(df):
-    df['Country'] = df['Country'].dropna().str.split(', ')
+def mapW(df,key):
+    df_country=df.copy()
+    df_country['Country'] = df_country['Country'].dropna().str.split(', ')
 
-    df_genres_exploded = df.explode('Country')
+    df_genres_exploded = df_country.explode('Country')
     genre_counts = df_genres_exploded['Country'].value_counts().reset_index()
     countries = {country.name: country.alpha_3 for country in pycountry.countries}
 
     genre_counts['code'] = genre_counts['Country'].map(countries)
-
     fig = px.choropleth(
         genre_counts,
         locations="code",
@@ -200,7 +268,7 @@ def mapW(df):
         margin=dict(l=0, r=0, t=40, b=0)
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig,key=key, use_container_width=True)
 
 def diff_rating(df):
     sur_note=df.sort_values(by=['diff_rating'],ascending=False)
@@ -264,8 +332,9 @@ def rating_actor(rating_df):
     st.plotly_chart(fig)
 
 def genre_rating(rating_df):
-    rating_df['Genre'] = rating_df['Genre'].dropna().str.split(', ')
-    df_genres_exploded = rating_df.explode('Genre')
+    rating_local=rating_df.copy()
+    rating_local['Genre'] = rating_local['Genre'].dropna().str.split(', ')
+    df_genres_exploded = rating_local.explode('Genre')
     genre_counts = df_genres_exploded['Genre'].value_counts().reset_index()
     genre_counts.columns = ['Genre', 'Nombre de films']
 
@@ -373,5 +442,5 @@ def runtime_bar(df):
     runtime_counts.columns = ['RuntimeBin', 'Count']
 
     fig = px.bar(runtime_counts, x='RuntimeBin', y='Count', title='Runtime of movie',
-                 labels={'RuntimeBin': 'Runtime (min)', 'Count': 'Number of movie'})
+                 labels={'RuntimeBin': 'Runtime (min)', 'Count': 'Number of movie'},text='Count')
     st.plotly_chart(fig)
