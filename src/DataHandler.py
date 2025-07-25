@@ -1,12 +1,9 @@
 # modules externes
-
 import zipfile
 import pandas as pd
 import tempfile
 from datetime import datetime
 import pycountry
-from wordcloud import WordCloud
-from stop_words import get_stop_words
 
 # modules internes
 import src.ApiHandler as api_handler

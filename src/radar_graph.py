@@ -38,22 +38,20 @@ def compute_scores(ref, watched_df, rating_df, reviews_df, comments_df, profiles
 def compute_consommateur_score(watched_df, profiles_stats):
     marker = compute_consommateur_marker(watched_df)
     all_markers = np.array(profiles_stats['nb_films_vus'])
-    percentile = np.sum(all_markers <= marker) / len(all_markers)
-    consommateur = round(percentile * 100)
+    consommateur = smart_percentile(marker, all_markers)
     return consommateur
 
 def compute_explorateur_score(ref, watched_df, profiles_stats):
     marker = compute_explorateur_marker(ref, watched_df)
-    all_marker = np.array(profiles_stats['ratio_peu_vus'])
-    percentile = np.sum(all_marker <= marker) / len(all_marker)
-    explorateur = round(percentile * 100)
+    all_markers = np.array(profiles_stats['ratio_peu_vus'])
+    explorateur = smart_percentile(marker, all_markers)
     return explorateur
 
 def compute_consensuel_score(rating_df, profiles_stats):
-    marker = compute_consensuel_marker(rating_df)
-    all_marker = np.array(profiles_stats['moyenne_diff_rating'])
-    percentile = np.sum(all_marker <= marker) / len(all_marker)
-    consensuel = round(percentile * 100)
+    marker = abs(compute_consensuel_marker(rating_df))
+    all_markers = np.array(profiles_stats['moyenne_diff_rating'])
+    all_markers = abs(all_markers)
+    consensuel = smart_percentile(marker, all_markers)
     return consensuel
 
 def compute_eclectique_score(watched_df, profiles_stats):
@@ -82,16 +80,13 @@ def compute_eclectique_score(watched_df, profiles_stats):
     user_vector = np.array([user_ratios.get(genre, 0.0) for genre in all_genres])
     user_distance = np.sum(np.abs(user_vector - genre_means))
 
-    percentile = np.sum(distances <= user_distance) / len(distances)
-    eclectique = round(percentile * 100)
-
+    eclectique = smart_percentile(user_distance, distances)
     return eclectique
 
 def compute_actif_score(reviews_df, comments_df, profiles_stats):
     marker = compute_actif_marker(reviews_df, comments_df)
     all_marker = np.array(profiles_stats['nb_interactions'])
-    percentile = np.sum(all_marker <= marker) / len(all_marker)
-    actif = round(percentile * 100)
+    actif = smart_percentile(marker, all_marker)
     return actif
 
 ###
@@ -150,3 +145,20 @@ def compute_actif_marker(reviews_df, comments_df):
     return marker
 
 ### PARTIE INDICATEURS ###
+
+def smart_percentile(marker, all_markers):
+    all_markers = list(all_markers)
+    if marker in all_markers:
+        all_markers.remove(marker)
+    if not all_markers:
+        return 50
+    count = np.sum(np.array(all_markers) <= marker)
+    percentile = count / len(all_markers)
+    score = int(round(percentile * 100))
+
+    if score == 0:
+        score = 1
+    elif score == 100:
+        score = 99
+
+    return score
