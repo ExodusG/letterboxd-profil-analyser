@@ -124,3 +124,6 @@ def compute_categories(ref, df):
         'number': counts
     })
     return result
+
+def erreur_api():
+      st.warning('The OMDB API has a problem, you can try later', icon="⚠️")

@@ -94,13 +94,15 @@ class ApiHandler:
         self.api_key_index = 0
 
     def get_movie_data_by_title(self, title, year):
-        response = requests.get(self.base_url, params={'apikey': self.api_key_array[self.api_key_index], 't': title, 'y': year}).json()
+        requestReponse = requests.get(self.base_url, params={'apikey': self.api_key_array[self.api_key_index], 't': title, 'y': year})
+        response = requestReponse.json()
+        status_code = requestReponse.status_code
         if response.get('Error') is not None:
             #sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
             if response['Error'] == "Request limit reached!":
                 self.switch_api_key()
-                response = self.get_movie_data_by_title(title, year)
-        return response
+                response,status_code = self.get_movie_data_by_title(title, year)
+        return response,status_code
 
     def switch_api_key(self):
         """ Change la clé API utilisée pour les requêtes OMDB"""

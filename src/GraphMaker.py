@@ -1,8 +1,6 @@
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from wordcloud import WordCloud
-from stop_words import get_stop_words
 import matplotlib.pyplot as plt
 
 class GraphMaker:

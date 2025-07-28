@@ -41,7 +41,9 @@ class DataHandler:
             title_year = (row['Name'], row['Year'])
             if title_year not in existing_movies:
                 try:
-                    films_data = self.api_handler.get_movie_data_by_title(row['Name'], row['Year'])
+                    films_data,status_code = self.api_handler.get_movie_data_by_title(row['Name'], row['Year'])
+                    if status_code ==503:
+                        return None
                     if films_data.get('Error') is not None:
                         df_errors.loc[len(df_errors)] = [self.uploaded_files.name, films_data['Error'], *row.values]
                     else:
@@ -88,8 +90,11 @@ class DataHandler:
                 self.all_movies = pd.DataFrame(self.films_data)
                 self.all_movies = clean_year(self.all_movies)
                 self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
-
-                self.all_movies = self.get_films(self.all_movies, self.watched_and_watchlist, my_bar)
+                movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar)
+                if movie_return is not None:
+                    self.all_movies = movie_return
+                else:
+                    erreur_api()
 
                 # mg = merge = méga fichier avec tous les films et les données intéressantes
                 self.watched_mg = pd.merge(self.watched, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
@@ -112,8 +117,8 @@ class DataHandler:
                 st.rerun()
 
             except FileNotFoundError:
-                st.write(f"File not found.")
-
+                 st.error('A file was not found, we need all the csv file of the zipfile', icon="⚠️")
+                 st.stop()
     def get_general_metrics(self):
         """ Récupère les stats générales"""
         metrics = [
