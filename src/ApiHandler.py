@@ -31,10 +31,10 @@ class ApiHandler:
     
     def get_worksheets(self):
         """ Récupère les feuilles de calcul nécessaires"""
-        self.spreadsheet = self.gspread_client.open("all_movies_data")
-        self.films_sheet = self.spreadsheet.worksheet("all_movies_data")
+        self.spreadsheet    = self.gspread_client.open("all_movies_data")
+        self.films_sheet    = self.spreadsheet.worksheet("all_movies_data")
         self.profiles_sheet = self.spreadsheet.worksheet("profiles_stats")
-        self.error_sheet = self.spreadsheet.worksheet("error")
+        self.error_sheet    = self.spreadsheet.worksheet("error")
 
     def get_data_from_sheet(self, sheet_str):
         """ Récupère les données d'une feuille de calcul"""
@@ -70,12 +70,18 @@ class ApiHandler:
             str(radar_stats['ratio_peu_vus']).replace(',', '.'),
             str(radar_stats['moyenne_diff_rating']).replace(',', '.'),
             radar_stats['ratio_par_genre'],  # doit être une chaîne (JSON)
-            radar_stats['nb_interactions']
+            radar_stats['nb_interactions'],
+            1
         ]
 
         if profile_id in id_to_index:  # Si le profil existe, met à jour la ligne
             row_index = id_to_index[profile_id] + 2  # +2 pour header et indexation 1-based
-            self.profiles_sheet.update(f'A{row_index}:K{row_index}', [row_data])
+            # Récupère la valeur actuelle de row[11] (compteur)
+            current_row = self.profiles_sheet.row_values(row_index)
+            current_count = int(current_row[11])
+            row_data[11] = current_count + 1
+            # Met à jour la ligne existante
+            self.profiles_sheet.update(f'A{row_index}:L{row_index}', [row_data])
         else:  # Sinon, ajoute une nouvelle ligne
             self.profiles_sheet.append_row(row_data)
 
@@ -93,19 +99,23 @@ class ApiHandler:
         self.api_key_array = st.secrets['API_KEY_ARRAY']
         self.api_key_index = 0
 
-    def get_movie_data_by_title(self, title, year):
-        requestReponse = requests.get(self.base_url, params={'apikey': self.api_key_array[self.api_key_index], 't': title, 'y': year})
-        response = requestReponse.json()
-        status_code = requestReponse.status_code
-        if response.get('Error') is not None:
-            #sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
-            if response['Error'] == "Request limit reached!":
-                self.switch_api_key()
-                response,status_code = self.get_movie_data_by_title(title, year)
-        return response,status_code
-
     def switch_api_key(self):
         """ Change la clé API utilisée pour les requêtes OMDB"""
         self.api_key_index += 1
         if self.api_key_index >= len(self.api_key_array):
             raise Exception("All API keys have been used up.")
+
+    def get_movie_data_by_title(self, title, year):
+        """ Récupère les données d'un film par son titre et son année via l'API OMDB.
+        Elle est utilisée quand le film n'est pas dans la feuille de calcul. Peut changer la clé API si la limite de requêtes est atteinte."""
+        requestReponse = requests.get(self.base_url, params={'apikey': self.api_key_array[self.api_key_index], 't': title, 'y': year})
+        response = requestReponse.json()
+        status_code = requestReponse.status_code
+        if response.get('Error') is not None:
+            # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
+            # print(response.get('Error'))
+            if response['Error'] == "Request limit reached!":
+                self.switch_api_key()
+                response,status_code = self.get_movie_data_by_title(title, year)
+        return response,status_code
+

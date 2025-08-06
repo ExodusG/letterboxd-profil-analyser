@@ -4,6 +4,8 @@ import numpy as np
 import sentry_sdk
 import string
 import math
+from datetime import date
+from typing import Any, List, Tuple
 
 # Configuration de Sentry pour la gestion des erreurs
 def setup_sentry():
@@ -14,6 +16,8 @@ def setup_sentry():
         dsn = st.secrets["dns"],
         send_default_pii = True,
     )
+
+## DATASET CLEANING FUNCTIONS ##
 
 def sanitize(value):
     if isinstance(value, float):
@@ -38,43 +42,15 @@ def clean_imdbr(df):
     df['imdbRating'] = df['imdbRating'].apply(lambda x: float(x) if x != '' else None)
     return df
 
-def extract_year(df, year):
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    df_year = df[df['Date'].dt.year == year]
-    return df_year
-
-def computeRuntime(df):
-    df['Runtime']=df['Runtime'].replace('nan', np.nan)
+def clean_runtime(df):
+    df['Runtime']=df['Runtime'].str.split(' ').str[0]
+    df = df[df['Runtime'].notna() & ~df['Runtime'].str.contains('s', case=False, na=True)] #remove the runtime in seconde
+    df['Runtime'] = df['Runtime'].apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
     df = df.dropna(subset=['Runtime'])
-    df['Runtime'] = df['Runtime'].astype(str).str.replace(r'[Ss]', '5', regex=True)
+    df['Runtime'] = df['Runtime'].astype(int)
+    return df
 
-    runtimeW=df['Runtime'].str.split(' ').str[0]
-    runtimeW = runtimeW.apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
-    runtimeW=runtimeW.sum() / 60
-    return runtimeW
-
-def compute_quartile(df):
-    quartile = df.copy()
-    if df is None or df.empty:
-        return 0, 0, 0
-    else :
-        quartile['imdbVotes'] = quartile['imdbVotes'].replace("N/A", np.nan)
-        quartile = quartile.dropna(subset=['imdbVotes'])
-        quartile['imdbVotes'] = quartile['imdbVotes'].astype(str).str.replace(',', '')
-        quartile['imdbVotes'] = quartile['imdbVotes'].apply(
-            lambda x: float(x) if x not in ['', 'N/A'] else np.nan
-        )
-        #quartile['imdbVotes'] = quartile['imdbVotes'].apply(lambda x: float(x) if x != '' else np.nan)
-        quartile = quartile.dropna(subset=['imdbVotes'])
-        quartile = quartile.sort_values(by=['imdbVotes'])
-
-        q1 = np.quantile(quartile['imdbVotes'], 0.25)
-        q2 = np.quantile(quartile['imdbVotes'], 0.50)
-        q3 = np.quantile(quartile['imdbVotes'], 0.75)
-    return q1, q2, q3
-
-
-def clean_reviews(reviews_df):
+def clean_reviews(df):
     def clean_text(text):
         if not isinstance(text, str):
             return ''
@@ -92,38 +68,117 @@ def clean_reviews(reviews_df):
         text = ' '.join(words)
         return text.strip()
     
-    return reviews_df['Review'].apply(clean_text)
+    return df['Review'].apply(clean_text)
+
+def clean_votes(df):
+    """Nettoie la colonne 'imdbVotes' d'un DataFrame et la convertit en float."""
+    votes = df.copy()
+    votes['imdbVotes'] = votes['imdbVotes'].replace(["N/A", ""], np.nan)
+    votes = votes.dropna(subset=['imdbVotes'])
+    votes['imdbVotes'] = votes['imdbVotes'].astype(str).str.replace(',', '')
+    votes['imdbVotes'] = votes['imdbVotes'].apply(lambda x: float(x) if x not in ['', 'N/A', None] else np.nan)
+    votes = votes.dropna(subset=['imdbVotes'])
+    return votes
+
+def clean_small_films(df):
+    if df is None or df.empty:
+        return pd.DataFrame()
+    clean_df = clean_votes(df)
+    clean_df = clean_runtime(clean_df)
+    clean_df = clean_df[pd.to_numeric(clean_df['Runtime'], errors='coerce') >= 5]
+    mask = ~((pd.to_numeric(clean_df['Runtime'], errors='coerce') < 20) & (clean_df['imdbVotes'] < 1000))
+    clean_df = clean_df[mask]
+    return clean_df
+
+##
+
+## DATASET EXTRACTION FUNCTIONS ##
+
+def extract_year(df, year):
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df_year = df[df['Date'].dt.year == year]
+    return df_year
+
+def computeRuntime(df):
+    df['Runtime']=df['Runtime'].replace('nan', np.nan)
+    df = df.dropna(subset=['Runtime'])
+    df['Runtime'] = df['Runtime'].astype(str).str.replace(r'[Ss]', '5', regex=True)
+
+    runtimeW=df['Runtime'].str.split(' ').str[0]
+    runtimeW = runtimeW.apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
+    runtimeW=runtimeW.sum() / 60
+    return runtimeW
+
+def compute_quantiles(df):
+    if df is None or df.empty:
+        return 0, 0, 0, 0
+    clean_df = clean_votes(df)
+    clean_df = clean_df.sort_values(by=['imdbVotes'])
+    q1 = np.quantile(clean_df['imdbVotes'], 0.05)
+    q2 = np.quantile(clean_df['imdbVotes'], 0.20)
+    q3 = np.quantile(clean_df['imdbVotes'], 0.50)
+    return q1, q2, q3
 
 def compute_categories(ref, df):
-    q1, q2, q3 = compute_quartile(ref)
+    q1, q2, q3 = compute_quantiles(ref)
+    clean_df = clean_votes(df)
 
-    df['imdbVotes'] = df['imdbVotes'].replace("N/A", np.nan)
-    df['imdbVotes'] = df['imdbVotes'].replace("", np.nan)
-    df = df.dropna(subset=['imdbVotes'])
-    df['imdbVotes'] = df['imdbVotes'].apply(
-    lambda x: float(x.replace(',', '')) if isinstance(x, str) else x
-    )
-
-    # Définir les bornes des intervalles
     intervals = [
-        (df['imdbVotes'] <= q1),             # Intervalle 0 <= Q1
-        (df['imdbVotes'] > q1) & (df['imdbVotes'] <= q2),  # Intervalle Q1 < Q2
-        (df['imdbVotes'] > q2) & (df['imdbVotes'] <= q3),  # Intervalle Q2 < Q3
-        (df['imdbVotes'] > q3)               # Intervalle Q3 < inf
+        (clean_df['imdbVotes'] <= q1),             
+        (clean_df['imdbVotes'] > q1) & (clean_df['imdbVotes'] <= q2),  
+        (clean_df['imdbVotes'] > q2) & (clean_df['imdbVotes'] <= q3),  
+        (clean_df['imdbVotes'] > q3)               
     ]
 
-    # Créer un tableau avec les comptages pour chaque intervalle
-    counts = [
-        len(df[intervals[0]]), 
-        len(df[intervals[1]]), 
-        len(df[intervals[2]]), 
-        len(df[intervals[3]])
-    ]
+    counts = [len(clean_df[intervals[i]]) for i in range(4)]
     result = pd.DataFrame({
-        'category': [' Obscure', 'Lesser-known', 'Well-known', 'Mainstream'],
+        'category': ['Obscure', 'Lesser-known', 'Well-known', 'Mainstream'],
         'number': counts
     })
     return result
 
+##
+
+def bind_categories(ref):
+    q1, q2, q3 = compute_quantiles(ref)
+    clean_ref = clean_votes(ref)
+    clean_ref['category'] = clean_ref['imdbVotes'].apply(
+        lambda x: 'Obscure' if x <= q1 else
+                  'Lesser-known' if q1 < x <= q2 else
+                  'Well-known' if q2 < x <= q3 else
+                  'Mainstream'
+    )
+    return clean_ref
+
+def make_movies_text(movie_list):
+    movies = movie_list[:10]
+    movies_text = "\n".join(f"• {m}<br>" for m in movies)
+    if len(movie_list) > 10:
+        movies_text += f"\n...and {len(movie_list) - 10} more"
+    return movies_text
+
 def erreur_api():
-      st.warning('The OMDB API has a problem, you can try later', icon="⚠️")
+      st.warning('The OMDB API is not working properly, try again later...', icon="⚠️")
+
+def get_year_bounds(year):
+    first_day = date(year, 1, 1)
+    last_day = date(year, 12, 31)
+    return first_day, last_day
+
+def get_date_coordinates(data: pd.DataFrame, x: str) -> Tuple[Any, List[float], List[int]]:
+    month_days = []
+    for m in data[x].dt.month.unique():
+        month_days.append(data.loc[data[x].dt.month == m, x].max().day)
+
+    month_positions = np.linspace(1.5, 50, 12)
+    weekdays_in_year = [i.weekday() for i in data[x]]
+
+    # sometimes the last week of the current year conflicts with next year's january
+    # pandas uses ISO weeks, which will give those weeks the number 52 or 53, but this
+    # is bad news for this plot therefore we need a correction to use Gregorian weeks,
+    # for a more in-depth explanation check
+    # https://stackoverflow.com/questions/44372048/python-pandas-timestamp-week-returns-52-for-first-day-of-year
+    weeknumber_of_dates = data[x].dt.strftime("%W").astype(int).tolist()
+
+    return month_positions, weekdays_in_year, weeknumber_of_dates
+

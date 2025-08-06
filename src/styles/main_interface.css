@@ -1,0 +1,28 @@
+div[data-testid="stTabs"]{
+        padding-top:30px;
+    }
+/* Sélectionner les titres des tabs */
+div[data-baseweb="tab-list"] > button[data-baseweb="tab"] > div[data-testid="stMarkdownContainer"] {
+    font-size: 30px; /* Changer la taille ici */
+    min-width:200px;
+}
+
+@media(max-width:610px) {
+    div[data-baseweb="tab-list"] > button[data-baseweb="tab"] > div[data-testid="stMarkdownContainer"] {
+    font-size: inherit; /* Changer la taille ici */
+    min-width:inherit;
+    }
+}
+
+.tip-block {
+    background-color: #262730;
+    padding: 10px;
+    border-radius: 5px;
+    color: #e8e8e8;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.stColumns {
+    margin-bottom: 16px;
+}

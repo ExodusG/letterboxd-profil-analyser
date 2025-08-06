@@ -6,6 +6,7 @@ from datetime import datetime
 import pycountry
 from wordcloud import WordCloud
 from stop_words import get_stop_words
+import os
 
 # modules internes
 import src.ApiHandler as api_handler
@@ -17,10 +18,12 @@ from src.radar_graph import compute_radar_stats_for_sheet
 class DataHandler:
 
     def __init__(self):
-        self.api_handler = api_handler.ApiHandler()
-        self.graph_maker = graph_maker.GraphMaker()
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.temp_name = self.temp_dir.name
+        self.api_handler    = api_handler.ApiHandler()
+        self.graph_maker    = graph_maker.GraphMaker()
+        self.temp_dir       = tempfile.TemporaryDirectory()
+        self.temp_name      = self.temp_dir.name
+
+### Initialisation des données
 
     def setup_worksheets_data(self):
         """ Configure les données des feuilles de calcul"""
@@ -30,14 +33,14 @@ class DataHandler:
     def get_films(self, all_movies, dfF, my_bar):
         """ Récupère les films manquants dans all_movies à partir de dfF"""
         
-        df_errors = pd.DataFrame(columns=["filename", "error", *dfF.columns])
-        df_movie = pd.DataFrame()
+        df_errors   = []
+        df_movies   = []
+        total_movies = len(dfF)
         existing_movies = set(
             zip(all_movies['Title'].dropna().astype(str), all_movies['Year'].dropna())
         )
 
-        i = 0 # Itérer sur les lignes de dfF pour comparer (Name, Year)
-        for _, row in dfF.iterrows():
+        for i, (_, row) in enumerate(dfF.iterrows()):
             title_year = (row['Name'], row['Year'])
             if title_year not in existing_movies:
                 try:
@@ -45,90 +48,128 @@ class DataHandler:
                     if status_code ==503:
                         return None
                     if films_data.get('Error') is not None:
-                        df_errors.loc[len(df_errors)] = [self.uploaded_files.name, films_data['Error'], *row.values]
+                        df_errors.append([self.uploaded_files.name, films_data['Error'], *row.values])
                     else:
-                        df_movie = pd.concat([df_movie, pd.DataFrame([films_data])], ignore_index=True)
+                        df_movies.append(films_data)
                 except Exception as e:
                     # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
-                    df_errors.loc[len(df_errors)] = [self.uploaded_files.name, str(e), *row.values]
+                    df_errors.append([self.uploaded_files.name, str(e), *row.values])
             my_bar.progress(
-                int(100 * i / len(dfF)), 
+                int(100 * (i+1) / total_movies),
                 text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)"
-                )
-            i += 1
+            )
 
-        if not df_errors.empty:
-            self.api_handler.add_error_to_sheet(df_errors)
+        if df_errors:
+            df_errors_df = pd.DataFrame(df_errors, columns=['File', 'Error', *dfF.columns])
+            self.api_handler.add_error_to_sheet(df_errors_df)
 
-        if not df_movie.empty:
-            self.api_handler.add_movies_to_sheet(df_movie)
-            self.all_movies = pd.concat([all_movies, df_movie]).drop_duplicates(subset=['Title', 'Year'])
+        if df_movies:
+            df_movies_df = pd.DataFrame(df_movies)
+            self.api_handler.add_movies_to_sheet(df_movies_df)
+            self.all_movies = pd.concat([all_movies, df_movies_df]).drop_duplicates(subset=['Title', 'Year'])
 
         my_bar.empty()
         return all_movies
     
-
-    def setup_user_upload(self, uploaded_files, my_bar):
+    def setup_user_upload(self, uploaded_files, my_bar,exemple):
         """ Configure les données de l'utilisateur à partir du fichier zip téléchargé"""
         if uploaded_files is not None:
-            self.uploaded_files = uploaded_files
             try:
-                with zipfile.ZipFile(uploaded_files, 'r') as zip_ref:
-                    zip_ref.extractall(self.temp_name)
+                if exemple is None:
+                    self.uploaded_files = uploaded_files
+                    tmp_name=self.temp_name
+                    with zipfile.ZipFile(uploaded_files, 'r') as zip_ref:
+                        zip_ref.extractall(tmp_name)
+                else:
+                    tmp_name=exemple
+                # Lecture des fichiers CSV attendus
+                csv_files = ['watchlist', 'watched', 'ratings', 'reviews', 'profile', 'comments']
+                dataframes = {}
+                for csv_name in csv_files:
+                    file_path = os.path.join(tmp_name, f'{csv_name}.csv')
+                    dataframes[csv_name] = self.safe_read_csv(file_path)
 
-                self.watchlist = pd.read_csv(self.temp_name + '/watchlist.csv')
-                self.watched = pd.read_csv(self.temp_name + '/watched.csv')
-                self.rating = pd.read_csv(self.temp_name + '/ratings.csv')
-                self.reviews = pd.read_csv(self.temp_name + '/reviews.csv')
-                self.profile = pd.read_csv(self.temp_name + '/profile.csv')
-                self.comments = pd.read_csv(self.temp_name + '/comments.csv')
+                self.watchlist  = dataframes['watchlist']
+                self.watched    = dataframes['watched']
+                self.rating     = dataframes['ratings']
+                self.reviews    = dataframes['reviews']
+                self.profile    = dataframes['profile']
+                self.comments   = dataframes['comments']
 
-                self.watchlist = clean_year(self.watchlist)
-                self.watched = clean_year(self.watched)
-                self.rating = clean_year(self.rating)
+                # Nettoyage des années
+                for attr in ['watchlist', 'watched', 'rating']:
+                    setattr(self, attr, clean_year(getattr(self, attr)))
 
+                # Préparation des références
                 self.all_movies = pd.DataFrame(self.films_data)
                 self.all_movies = clean_year(self.all_movies)
+
                 self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
-                movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar)
-                if movie_return is not None:
-                    self.all_movies = movie_return
-                else:
-                    erreur_api()
+                
+                # Enrichissement des références
+                if exemple is None:
+                    movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar)
+                    if movie_return is not None:
+                        self.all_movies = movie_return
+                    else:
+                        erreur_api()
 
+                self.all_movies = self.all_movies.drop_duplicates(subset=['Title', 'Year'])
+                self.all_movies = clean_small_films(self.all_movies)
+                self.all_movies = bind_categories(self.all_movies)
+
+                # Fichiers spécfiques à l'utilisateur
                 # mg = merge = méga fichier avec tous les films et les données intéressantes
-                self.watched_mg = pd.merge(self.watched, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
-                self.watchlist_mg = pd.merge(self.watchlist, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+                self.watched_mg     = pd.merge(self.watched, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+                self.watchlist_mg   = pd.merge(self.watchlist, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+                self.rating_mg      = pd.merge(self.rating, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
 
-                self.rating_mg = pd.merge(self.rating, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
                 self.rating_mg['Rating'] = self.rating_mg['Rating'] * 2
                 self.rating_mg = clean_imdbr(self.rating_mg)
                 self.rating_mg['diff_rating'] = self.rating_mg['Rating'] - self.rating_mg['imdbRating']
 
-                radar_stats = compute_radar_stats_for_sheet(self.all_movies, self.watched_mg, self.rating_mg, 
-                                                            self.reviews, self.comments, 
-                                                            self.api_handler.get_data_from_sheet("profiles_stats"))
-                self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], radar_stats)
+                self.radar_stats = compute_radar_stats_for_sheet(
+                    self.all_movies, self.watched_mg, self.rating_mg,
+                    self.reviews, self.comments, 
+                    self.api_handler.get_data_from_sheet("profiles_stats")
+                )
+                self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], self.radar_stats)
 
             except zipfile.BadZipFile:
                 st.session_state["uploader_key"] += 1
-                #trick to remove bad file
                 st.warning('This is not a zipfile', icon="⚠️")
+                st.session_state["exemple"] = 0
                 st.rerun()
-
-            except FileNotFoundError:
-                 st.error('A file was not found, we need all the csv file of the zipfile', icon="⚠️")
+            except FileNotFoundError as e:
+                 st.session_state["exemple"] = 0
+                 st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
                  st.stop()
-    def get_general_metrics(self):
+            except Exception as e:
+                st.error(f"An error occurred: {e}", icon="⚠️")
+
+    def safe_read_csv(self, file_path):
+        """ Lit un fichier CSV en gérant les erreurs"""
+        try:
+            return pd.read_csv(file_path)
+        except FileNotFoundError:
+            st.error(f"File {file_path} not found.", icon="⚠️")
+            return pd.DataFrame()
+
+### 
+
+### Méthodes spécifiques à la gestion des données
+
+    def general_metrics_div(self):
         """ Récupère les stats générales"""
         metrics = [
-            (len(self.watched_df.index), " movies"),
-            (round(computeRuntime(self.watched_df)), " hours"),
-            (len(self.watched_df['Director'].unique()), " directors"),
-            (len(self.watchlist_df.index), " movies"),
-            (round(computeRuntime(self.watchlist_df)), " hours"),
+            (len(self.watched_df.index), " movies", "🎬"),
+            (round(computeRuntime(self.watched_df)), " hours", "🕒"),
+            (len(self.watched_df['Director'].unique()), " directors", "🎭"),
+            (len(self.watchlist_df.index), " movies", "🎯"),
+            (round(computeRuntime(self.watchlist_df)), " hours", "⏳"),
         ]
-        return metrics
+
+        return self.graph_maker.general_metrics_div(metrics)
 
     def get_years(self):
         """ Récupère les années de visionnage à partir de la date d'inscription du profil"""
@@ -146,6 +187,7 @@ class DataHandler:
             self.rating_df = self.rating_mg
             self.reviews_df = self.reviews
         else:
+            selected_year = int(selected_year)
             self.watched_df = extract_year(self.watched_mg, selected_year)
             self.watchlist_df = extract_year(self.watchlist_mg, selected_year)
             self.rating_df = extract_year(self.rating_mg, selected_year)
@@ -153,37 +195,20 @@ class DataHandler:
         self.corpus = clean_reviews(self.reviews_df)
         self.year = selected_year
 
+### Gestion des graphiques
+
     def genre(self, key):
         """ Prépare les data pour le GraphMaker et renvoie le graphique à l'interface"""
         match key:
             case "watched":
-                df_genres = self.watched_df[['Name', 'Genre']].dropna()
+                df_genres = self.watched_df[['Name', 'Year','Genre']].dropna()
             case "watchlist":
-                df_genres = self.watchlist_df[['Name', 'Genre']].dropna()
+                df_genres = self.watchlist_df[['Name', 'Year','Genre']].dropna()
 
         df_genres['Genre'] = df_genres['Genre'].str.split(', ')
         df_genres_exploded = df_genres.explode('Genre')
 
-            # Générer une colonne texte pour le hover
-        def make_movies_text(movie_list):
-            # Limite l'affichage à 10 films max par genre (pour la lisibilité)
-            movies = movie_list[:10]
-            movies_text = "<br>".join(f"• {m}" for m in movies)
-            if len(movie_list) > 10:
-                movies_text += f"<br><span style='color:#888; font-size:12px;'>...and {len(movie_list) - 20} more</span>"
-            return movies_text
-    
-        genre_movies = (
-            df_genres_exploded
-            .groupby('Genre')
-            .agg({'Name': lambda x: sorted(set(x)), 'Genre': 'count'})
-            .rename(columns={'Genre': 'Number of movie', 'Name': 'Movies'})
-            .reset_index()
-            .sort_values('Number of movie', ascending=False)
-        )
-        genre_movies['MoviesText'] = genre_movies['Movies'].apply(make_movies_text)
-
-        return self.graph_maker.graph_genre(genre_movies)
+        return self.graph_maker.graph_genre(df_genres_exploded)
     
     def actor(self, key):
         match key:
@@ -219,50 +244,108 @@ class DataHandler:
         top_5_votes = movies_rating.sort_values(by='imdbVotes', ascending=False).head(10)
         top = top_5_votes[['Title', 'imdbVotes']].reset_index(drop=True)
         return bottom, top
-    
-    def cinephile(self, key):
+
+### CINEPHILE
+
+    def cinephile_graph(self, key):
+
+           # Générer une colonne texte pour le hover
+        def make_movies_text(movie_list):
+            # Limite l'affichage à 10 films max par genre (pour la lisibilité)
+            movies = movie_list[:10]
+            movies_text = "<br>".join(f"• {m}" for m in movies)
+            if len(movie_list) > 10:
+                movies_text += f"<br><span style='color:#888; font-size:12px;'>...and {len(movie_list) - 10} more</span>"
+            return movies_text
+
         match key:
             case "watched":
                 habit = self.watched_df.copy()
             case "watchlist":
                 habit = self.watchlist_df.copy()
-        result = compute_categories(self.all_movies, habit)
-        return self.graph_maker.graph_cinephile(result)
 
-    def decade(self, key):
+        result = compute_categories(self.all_movies, habit)
+        result['Films'] = result['category'].apply(
+            lambda x: habit[habit['category'] == x]['Title'].tolist()
+        )
+        result['MoviesText'] = result['Films'].apply(make_movies_text)
+
+        return self.graph_maker.cinephile_graph(result)
+
+    def cinephile_div(self, key):
         match key:
             case "watched":
-                years = self.watched_df['Year'].dropna().explode()
+                habit = self.watched_df.copy()
+                text = "you've watched"
             case "watchlist":
-                years = self.watchlist_df['Year'].dropna().explode()
-        years = years.astype(int)
+                habit = self.watchlist_df.copy()
+                text = "you want to see"
+        result = compute_categories(self.all_movies, habit)
 
-        years = pd.cut(years, bins=[1900, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020, 2025], 
-                    labels=['1900-1950', '1951-1960', '1961-1970', '1971-1980', '1981-1990', 
-                            '1991-2000', '2001-2010', '2011-2020', '2021-2025'])
-        years = years.value_counts().reset_index()
-        years.columns = ['Year', 'Number of Movies']
+        # on crée un df avec les 4 films les moins vus pour Obscure et les 4 films les plus vus pour Mainstream
+        obscure_films = habit.sort_values('imdbVotes', ascending=True).head(4)
+        mainstream_films = habit.sort_values('imdbVotes', ascending=False).head(4)
 
-        years = years.sort_values(by='Year')
+        return self.graph_maker.two_div_four_films(mainstream_films, obscure_films, "most popular", "least popular", text)
 
-        return self.graph_maker.graph_decade(years)
+### 
+
+### DECADE
+
+    def decade_graph(self, key):
+        match key:
+            case "watched":
+                df = self.watched_df.copy()
+            case "watchlist":
+                df = self.watchlist_df.copy()
+
+        df = df.dropna(subset=['Year']).copy()
+        df['Year'] = df['Year'].astype(int)
+
+        # Calcul du bin de 5 ans
+        df['FiveYearBin'] = df['Year'].apply(lambda y: f"{(y//5)*5}-{(y//5)*5+4}")
+
+        # Groupby sur la tranche de 5 ans
+        grouped = (
+            df.groupby('FiveYearBin')
+            .agg(Number=('Title', 'count'), Movies=('Title', list))
+            .reset_index()
+            .sort_values('FiveYearBin')
+        )
+        grouped['MoviesText'] = grouped['Movies'].apply(make_movies_text)
+
+        return self.graph_maker.graph_decade(grouped)
     
+    def decade_div(self, key):
+        match key:
+            case "watched":
+                df_decade = self.watched_df.copy()
+                text = "you've watched"
+            case "watchlist":
+                df_decade = self.watchlist_df.copy()
+                text = "you want to see"
+        df_decade=df_decade.sort_values('Year', ascending=True)
+        oldest_films = df_decade.head(4)
+        newest_films = df_decade.tail(4)
+
+        return self.graph_maker.two_div_four_films(oldest_films, newest_films, "oldest", "most recent", text)
+
+### 
+
     def runtime_bar(self, key):
         match key:
             case "watched":
                 df = self.watched_df.copy()
             case "watchlist":
                 df = self.watchlist_df.copy()
-        df['Runtime']=df['Runtime'].str.split(' ').str[0]
-        df = df[df['Runtime'].notna() & ~df['Runtime'].str.contains('s', case=False, na=True)] #remove the runtime in seconde
-        df['Runtime'] = df['Runtime'].apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
-        df = df[(df['Runtime'] >= 20) & (df['Runtime'] <= 230)]
-        bins = list(range(20, 241, 10))  # 20 to 240 by 10
+        df = df[(df['Runtime'] >= 10) & (df['Runtime'] <= 300)]
+        #bins = list(range(df['Runtime'].min(), df['Runtime'].max() + 10, 10))  # Bins de 10 minutes de 0 à 300 minutes
+        bins = list(range(10, 301, 10))
         labels = [f'{i}-{i+9}' for i in bins[:-1]]
         df['RuntimeBin'] = pd.cut(df['Runtime'], bins=bins, labels=labels, right=True, include_lowest=True)
         runtime_counts = df['RuntimeBin'].value_counts().sort_index().reset_index()
         runtime_counts.columns = ['RuntimeBin', 'Count']
-        return self.graph_maker.graph_runtime_bar(runtime_counts)
+        return self.graph_maker.graph_runtime_bar(df)
 
     def mapW(self, key):
         match key:
@@ -277,6 +360,27 @@ class DataHandler:
         genre_counts['code'] = genre_counts['Country'].map(countries)
         return self.graph_maker.graph_mapW(genre_counts)
 
+    def mapW_div(self, country,key):
+        """ Affiche 4 films d'un pays sélectionné sur la carte"""
+        match key:
+            case "watched":
+                df_country = self.watched_df.copy()
+                text = "you watched from "
+            case "watchlist":
+                df_country = self.watchlist_df.copy()
+                text = "you want to watch from "
+        df_country['Country'] = df_country['Country'].dropna().str.split(', ')
+        df_genres_exploded = df_country.explode('Country')
+        countries = {country.name: country.alpha_3 for country in pycountry.countries}
+        df_genres_exploded['code']=df_genres_exploded['Country'].map(countries)
+        df_genres_exploded=df_genres_exploded[df_genres_exploded['code']==country]
+        if(len(df_genres_exploded)>4):
+            top_4 = df_genres_exploded.sample(4,replace=False)
+        else:
+            top_4 = df_genres_exploded.sample(4,replace=True)
+        text = text+top_4.Country.iloc[0]
+        return self.graph_maker.one_div_four_films(top_4, text)
+    
     def diff_rating(self):
         sur_note = self.rating_df.sort_values(by=['diff_rating'],ascending=False)
         sur_note = sur_note.head(10).reset_index(drop=True)
@@ -285,6 +389,18 @@ class DataHandler:
         sous_note = sous_note.head(10).reset_index(drop=True)
         return sur_note[['Name','Rating','imdbRating','diff_rating']], sous_note[['Name','Rating','imdbRating','diff_rating']]
     
+    def diff_rating_test(self,key):
+        match key:
+            case "overrated":
+                df = self.rating_df.sort_values(by=['diff_rating'],ascending=False)
+                df = df.head(10).reset_index(drop=True)
+                text= "you have most overrated"
+            case "underrated":
+                df = self.rating_df.sort_values(by=['diff_rating'])
+                df = df.head(10).reset_index(drop=True)
+                text= "you have most underrated"
+        div= self.graph_maker.two_div_five_films(df.head(5), df.tail(5), text)
+        return div
     def rating_director(self):
         nb_real = self.rating_df['Director'].value_counts().head(25)
         df_top_directors = self.rating_df[self.rating_df['Director'].isin(nb_real.index)]
@@ -344,3 +460,36 @@ class DataHandler:
             text = " ".join(self.corpus)
             wc=wordcloud.generate(text)
             return self.graph_maker.graph_generate_wordcloud(wc)
+
+    def radar_graph(self):
+        fig = self.graph_maker.graph_radar(self.radar_stats)
+        return fig
+
+    def waffle(self,year):
+        df=self.watched_mg.copy()
+        df_count = df.groupby('Date').size().reset_index(name='count')
+        debut,fin=get_year_bounds(year)
+        debut=pd.to_datetime(debut)
+        fin=pd.to_datetime(fin)
+        df_count['Date']=pd.to_datetime(df_count['Date'])
+        df_year=df_count[df_count['Date'].between(debut,fin)]
+        df_year.columns=['date','count']
+
+        all_dates = pd.date_range(start=debut, end=fin, freq='D').normalize()
+
+        df_year_mg = pd.merge(
+            pd.DataFrame({'date': all_dates}),
+            df_year,
+            on='date',
+            how='left'
+        ).fillna({'count': 0, 'films_list': ''})
+        df_year_mg['count']=df_year_mg['count'].astype(int)
+
+
+        month_pos, weekdays, weeknumber = get_date_coordinates(
+        data=df_year_mg,
+        x='date'
+        )
+        return self.graph_maker.waffle(df_year_mg, month_pos, weekdays, weeknumber)
+
+###

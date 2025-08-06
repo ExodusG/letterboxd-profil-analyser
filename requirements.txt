@@ -9,3 +9,4 @@ gspread
 sentry-sdk
 wordcloud
 stop-words
+streamlit-antd-components
