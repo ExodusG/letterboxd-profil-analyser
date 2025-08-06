@@ -122,7 +122,7 @@ def general_info():
     with col2:
         st.markdown("""
         <div style='text-align: center; font-size: 3em;'>
-        RADAR plot comming soon...
+        RADAR plot coming soon...
         </div>
         """, unsafe_allow_html=True)
 
