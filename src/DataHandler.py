@@ -133,7 +133,8 @@ class DataHandler:
                     self.reviews, self.comments, 
                     self.api_handler.get_data_from_sheet("profiles_stats")
                 )
-                self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], self.radar_stats)
+                if(st.secrets['prod']==True):
+                    self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], self.radar_stats)
 
             except zipfile.BadZipFile:
                 st.session_state["uploader_key"] += 1
@@ -280,7 +281,7 @@ class DataHandler:
             case "watchlist":
                 habit = self.watchlist_df.copy()
                 text = "you want to see"
-        result = compute_categories(self.all_movies, habit)
+        #result = compute_categories(self.all_movies, habit)
 
         # on crée un df avec les 4 films les moins vus pour Obscure et les 4 films les plus vus pour Mainstream
         obscure_films = habit.sort_values('imdbVotes', ascending=True).head(4)

@@ -16,6 +16,8 @@ with open('src/styles/main_interface.css') as f:
     css = f.read()
 with open('src/styles/general_metrics.css') as f:
     css += f.read()
+with open('src/styles/graph.css') as f:
+    css += f.read()
 st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
 ### 
