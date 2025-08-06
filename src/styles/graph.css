@@ -286,7 +286,7 @@
     opacity: 1;
 }
 
-@media(max-width:500x){
+@media(max-width:500px){
     .two_div-five-grid {
         grid-template-columns: 1fr 1fr 1fr;
         grid-template-rows: 1fr 1fr;

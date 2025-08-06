@@ -34,7 +34,7 @@ st.set_page_config(
 )
 
 st.markdown("""
-# **Letterboxd Profile Analyzer**
+# **Letterboxd Stats Analyzer**
 
 🎬 Welcome to our Letterboxd Profile Analyzer. With just a few clicks, you'll discover your movie habits and get interesting insights about your film preferences, all your [letterboxd](https://letterboxd.com/) statistics !  
 
