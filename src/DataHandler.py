@@ -87,7 +87,7 @@ class DataHandler:
                 dataframes = {}
                 for csv_name in csv_files:
                     file_path = os.path.join(tmp_name, f'{csv_name}.csv')
-                    dataframes[csv_name] = self.safe_read_csv(file_path)
+                    dataframes[csv_name] = self.safe_read_csv(file_path,f'{csv_name}.csv')
 
                 self.watchlist  = dataframes['watchlist']
                 self.watched    = dataframes['watched']
@@ -141,19 +141,17 @@ class DataHandler:
                 st.warning('This is not a zipfile', icon="⚠️")
                 st.session_state["exemple"] = 0
                 st.rerun()
-            except FileNotFoundError as e:
-                 st.session_state["exemple"] = 0
-                 st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
-                 st.stop()
             except Exception as e:
                 st.error(f"An error occurred: {e}", icon="⚠️")
 
-    def safe_read_csv(self, file_path):
+    def safe_read_csv(self, file_path,file_name):
         """ Lit un fichier CSV en gérant les erreurs"""
         try:
             return pd.read_csv(file_path)
         except FileNotFoundError:
-            st.error(f"File {file_path} not found.", icon="⚠️")
+            st.session_state["exemple"] = 0
+            st.error(f"File {file_name} not found. We need all the csv files of the zipfile", icon="⚠️")
+            st.stop()
             return pd.DataFrame()
 
 ### 
