@@ -10,7 +10,7 @@ from src.utils import *
 from src.radar_graph import *
 import src.DataHandler as data_handler
 import streamlit_antd_components as sac
-
+from src.constants import WATCHED, WATCHLIST
 # imports CSS
 with open('src/styles/main_interface.css') as f:
     css = f.read()
@@ -103,6 +103,12 @@ def general_info():
 
     st.markdown("""<div class="header", style="margin-top: 5%;"></div>""", unsafe_allow_html=True)
     st.header("LET'S GET :blue[STARTED] - Quick facts", divider="gray", anchor=False)
+    help_data="""
+    For better visualization, we decided to establish certain criteria to exclude specific data :
+    - We do not include TV series or episodes
+    - We do not include movies shorter than 5 minutes
+    - We do not include movies under 20 minutes with fewer than 1,000 IMDb votes
+    """
     st.markdown("""
     <div style='text-align: left; margin-bottom: 3%; font-size: 1.1em;'>
     This first section shows some general metrics in three different ways:
@@ -111,21 +117,27 @@ def general_info():
         <li><strong>Radar chart</strong>: A visual representation of your film preferences, activity, uniqueness...</li>
         <li><strong>Waffle plot</strong>: A unique way to visualize your watched films day to day</li>
     </ul>
+         
     Have fun exploring your statistics!
     </div>
     """, unsafe_allow_html=True)
+    st.markdown("""<strong> Information about data processing</strong>""",unsafe_allow_html=True,help=help_data)
 
     col1, col2 = st.columns(2, vertical_alignment="center")
     with col1:
-        div = data_handler.general_metrics_div()
+        st.subheader("You have :blue[watched]...", divider=False, anchor=False)
+        div,div2 = data_handler.general_metrics_div()
         st.html(div)
+        st.subheader("You :blue[watchlist] contains...", divider=False, anchor=False)
+        st.html(div2)
     with col2:
         st.markdown("""
         <div style='text-align: center; font-size: 3em;'>
         RADAR plot coming soon...
         </div>
         """, unsafe_allow_html=True)
-
+    
+    st.subheader("Your :blue[diary]", divider=False, anchor=False,help="Almost all the charts display elements when you hover your mouse over them!")
     calendar()
 
 @st.fragment
@@ -170,17 +182,17 @@ def main_interface():
     match cat:
         case "Watched":
             st.subheader(":blue[Genre] distribution of your watched films", divider=False, anchor=False)
-            fig = data_handler.genre("watched")
+            fig = data_handler.genre(WATCHED)
             st.plotly_chart(fig, use_container_width=True)
 
             watched_actor_col, watched_director_col = st.columns(2)
             with watched_actor_col:
                 st.subheader(":blue[Actors] in your watched films", divider=False, anchor=False)
-                fig = data_handler.actor("watched")
+                fig = data_handler.actor(WATCHED)
                 st.plotly_chart(fig, key="actor_watched")
             with watched_director_col:
                 st.subheader(":blue[Directors] of your watched films", divider=False, anchor=False)
-                fig = data_handler.director("watched")
+                fig = data_handler.director(WATCHED)
                 st.plotly_chart(fig, key="director_watched")
 
             st.subheader("Are you a :blue[Explorer] ?", divider=False, anchor=False)
@@ -198,17 +210,17 @@ def main_interface():
                 </ul>
                 </div>
                 """, unsafe_allow_html=True)
-                fig = data_handler.cinephile_graph("watched")
+                fig = data_handler.cinephile_graph(WATCHED)
                 st.plotly_chart(fig, key="cinephile_graph_watched")
             with cinephile_right:
-                div = data_handler.cinephile_div("watched")
+                div = data_handler.cinephile_div(WATCHED)
                 st.html(div)
 
             st.subheader("Are you a :blue[Time Traveler]?", divider=False, anchor=False)
 
             decade_left, decade_right = st.columns(2, vertical_alignment="center")
             with decade_left:
-                div = data_handler.decade_div("watched")
+                div = data_handler.decade_div(WATCHED)
                 st.html(div)
             with decade_right:
                 st.markdown("""
@@ -216,102 +228,119 @@ def main_interface():
                 The graph shows the distribution of your watched films across different decades.
                 </div>
                 """, unsafe_allow_html=True)
-                fig = data_handler.decade_graph("watched")
+                fig = data_handler.decade_graph(WATCHED)
                 st.plotly_chart(fig, key="decade_watched")
 
             st.subheader(":blue[Runtime] distribution of your watched films", divider=False, anchor=False)
-            fig = data_handler.runtime_bar("watched")
+            fig = data_handler.runtime_bar(WATCHED)
             st.plotly_chart(fig, key="runtime_bar_watched")
             st.subheader(":blue[Locations] distribution of your watched films", divider=False, anchor=False)
-            fig = data_handler.mapW("watched")
+            fig = data_handler.mapW(WATCHED)
             
-            event_map(fig,"watched")
+            event_map(fig,WATCHED)
             #https://github.com/streamlit/streamlit/issues/455#issuecomment-1811044197
 
         case "Watchlist":
-            st.subheader(":blue[Genre] distribution of your watchlist films", divider=False, anchor=False)
-            fig = data_handler.genre("watchlist")
-            st.plotly_chart(fig, use_container_width=True)
+            if data_handler.watchlist_empty() :
+                st.warning("You have no movie in your watchlist, please add some to see more data",icon="⚠️")
+            else:
+                st.subheader(":blue[Genre] distribution of your watchlist films", divider=False, anchor=False)
+                fig = data_handler.genre(WATCHLIST)
+                st.plotly_chart(fig, use_container_width=True)
 
-            watchlist_actor_col, watchlist_director_col = st.columns(2)
-            with watchlist_actor_col:
-                st.subheader(":blue[Actors] in your watchlist films", divider=False, anchor=False)
-                fig = data_handler.actor("watchlist")
-                st.plotly_chart(fig, key="actor_watchlist")
-            with watchlist_director_col:
-                st.subheader(":blue[Directors] of your watchlist films", divider=False, anchor=False)
-                fig = data_handler.director("watchlist")
-                st.plotly_chart(fig, key="director_watchlist")
+                watchlist_actor_col, watchlist_director_col = st.columns(2)
+                with watchlist_actor_col:
+                    st.subheader(":blue[Actors] in your watchlist films", divider=False, anchor=False)
+                    fig = data_handler.actor(WATCHLIST)
+                    st.plotly_chart(fig, key="actor_watchlist")
+                with watchlist_director_col:
+                    st.subheader(":blue[Directors] of your watchlist films", divider=False, anchor=False)
+                    fig = data_handler.director(WATCHLIST)
+                    st.plotly_chart(fig, key="director_watchlist")
 
-            st.subheader("Are you an :blue[Explorer]?", divider=False, anchor=False)
-            cinephile_left, cinephile_right = st.columns(2, vertical_alignment="center")
-            with cinephile_left:
-                st.markdown("""
-                <div style='text-align: justify; font-size: 1.1em;'>
-                The graph shows the distribution of films across different popularity categories. These categories are based on the number of <strong>IMDB votes</strong>.
-                Thus, this may not reflect the Letterboxd community's opinion. The categories are defined as follows:
-                <ul>
-                    <li><strong>Obscure</strong>: Films that are in the bottom 5% by <strong>number of IMDB votes</strong></li>
-                    <li><strong>Lesser-known</strong>: Films that are in the 5% to 20% range by <strong>number of IMDB votes</strong></li>
-                    <li><strong>Well-known</strong>: Films that are in the 20% to 50% range by <strong>number of IMDB votes</strong></li>
-                    <li><strong>Mainstream</strong>: Films that are in the top 50% by <strong>number of IMDB votes</strong></li>
-                </ul>
-                </div>
-                """, unsafe_allow_html=True)
-                fig = data_handler.cinephile_graph("watchlist")
-                st.plotly_chart(fig, key="cinephile_graph_watchlist")
-            with cinephile_right:
-                div = data_handler.cinephile_div("watchlist")
-                st.html(div)
+                st.subheader("Are you an :blue[Explorer]?", divider=False, anchor=False)
+                cinephile_left, cinephile_right = st.columns(2, vertical_alignment="center")
+                with cinephile_left:
+                    st.markdown("""
+                    <div style='text-align: justify; font-size: 1.1em;'>
+                    The graph shows the distribution of films across different popularity categories. These categories are based on the number of <strong>IMDB votes</strong>.
+                    Thus, this may not reflect the Letterboxd community's opinion. The categories are defined as follows:
+                    <ul>
+                        <li><strong>Obscure</strong>: Films that are in the bottom 5% by <strong>number of IMDB votes</strong></li>
+                        <li><strong>Lesser-known</strong>: Films that are in the 5% to 20% range by <strong>number of IMDB votes</strong></li>
+                        <li><strong>Well-known</strong>: Films that are in the 20% to 50% range by <strong>number of IMDB votes</strong></li>
+                        <li><strong>Mainstream</strong>: Films that are in the top 50% by <strong>number of IMDB votes</strong></li>
+                    </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    fig = data_handler.cinephile_graph(WATCHLIST)
+                    st.plotly_chart(fig, key="cinephile_graph_watchlist")
+                with cinephile_right:
+                    div = data_handler.cinephile_div(WATCHLIST)
+                    st.html(div)
 
-            st.header("Are you a :blue[Time Traveler]?", divider=False, anchor=False)
+                st.header("Are you a :blue[Time Traveler]?", divider=False, anchor=False)
 
-            decade_left, decade_right = st.columns(2, vertical_alignment="center")
-            with decade_left:
-                div = data_handler.decade_div("watchlist")
-                st.html(div)
-            with decade_right:
-                st.markdown("""
-                <div style='text-align: justify; font-size: 1.1em;'>
-                The graph shows the distribution of your watchlist films across different decades.
-                </div>
-                """, unsafe_allow_html=True)
-                fig = data_handler.decade_graph("watchlist")
-                st.plotly_chart(fig, key="decade_watchlist")
+                decade_left, decade_right = st.columns(2, vertical_alignment="center")
+                with decade_left:
+                    div = data_handler.decade_div(WATCHLIST)
+                    st.html(div)
+                with decade_right:
+                    st.markdown("""
+                    <div style='text-align: justify; font-size: 1.1em;'>
+                    The graph shows the distribution of your watchlist films across different decades.
+                    </div>
+                    """, unsafe_allow_html=True)
+                    fig = data_handler.decade_graph(WATCHLIST)
+                    st.plotly_chart(fig, key="decade_watchlist")
 
-            st.subheader(":blue[Runtime] distribution of your watchlist", divider=False, anchor=False)
-            fig = data_handler.runtime_bar("watchlist")
-            st.plotly_chart(fig, key="runtime_bar_watchlist")
+                st.subheader(":blue[Runtime] distribution of your watchlist", divider=False, anchor=False)
+                fig = data_handler.runtime_bar(WATCHLIST)
+                st.plotly_chart(fig, key="runtime_bar_watchlist")
 
-            st.subheader(":blue[Locations] distribution of your watchlist", divider=False, anchor=False)
-            fig = data_handler.mapW("watchlist")
-            event_map(fig,"watchlist")
+                st.subheader(":blue[Locations] distribution of your watchlist", divider=False, anchor=False)
+                fig = data_handler.mapW(WATCHLIST)
+                event_map(fig,WATCHLIST)
 
         case "Rating":
             
-            st.header("Some stats on your ratings", divider='blue')
+            #st.header("Some stats on your ratings", divider='blue')
             #sur_note, sous_note = data_handler.diff_rating()
 
             # st.write('The movies you rated most compared to IMDB')
             # st.write(sur_note)
             # st.write('The movies you most underrated compared to IMDB')
             # st.write(sous_note)
-            div=data_handler.diff_rating_test("overrated")
-            st.html(div)
-            div=data_handler.diff_rating_test("underrated")
-            st.html(div)
-            fig = data_handler.rating_director()
-            st.plotly_chart(fig, key="rating_director")
-            fig = data_handler.rating_actor()
-            st.plotly_chart(fig, key="rating_actor")
-            fig = data_handler.genre_rating()
-            st.plotly_chart(fig, key="genre_rating")
-            fig = data_handler.comparaison_rating()
-            st.plotly_chart(fig, key="comparaison_rating")
+            if data_handler.rating_empty():
+                st.warning("You have no movie in your ratings, please add some to see more data",icon="⚠️")
+            else:
+                col11,col22, col33 = st.columns([1,1,1], vertical_alignment="center",gap="large")
+                with col22:
+                    st.subheader("The 10 films you have most :blue[overrated]", divider=False, anchor=False)
+                div=data_handler.diff_rating_test("overrated")
+                st.html(div)
+                col111,col222, col333 = st.columns([1,1,1], vertical_alignment="center",gap="large")
+                with col222:
+                    st.subheader("The 10 films you have most :blue[underrated]", divider=False, anchor=False)
+                div=data_handler.diff_rating_test("underrated")
+                st.html(div)
+                st.subheader("Top 25 most rated :blue[directors] and their average rating ", divider=False, anchor=False)
+                fig = data_handler.rating_director()
+                st.plotly_chart(fig, key="rating_director")
+                st.subheader("Top 25 most rated :blue[actors] and their average rating ", divider=False, anchor=False)
+                fig = data_handler.rating_actor()
+                st.plotly_chart(fig, key="rating_actor")
+                st.subheader("Number of films and average rating by :blue[genre]", divider=False, anchor=False)
+                fig = data_handler.genre_rating()
+                st.plotly_chart(fig, key="genre_rating")
+
+                st.subheader(":blue[Breakdown] of IMDB ratings and your own ratings", divider=False, anchor=False)
+                fig = data_handler.comparaison_rating()
+                st.plotly_chart(fig, key="comparaison_rating")
 
             fig = data_handler.generate_wordcloud()
             if fig is not None:
-                st.subheader("A wordcloud with all your reviews")
+                st.subheader("A wordcloud with all your :blue[reviews]", divider=False, anchor=False)
                 st.pyplot(fig)
 
 #

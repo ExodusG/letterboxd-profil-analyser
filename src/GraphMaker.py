@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from typing import Any, List
+from wordcloud import WordCloud
+import random
 from plotly.subplots import make_subplots
 
 class GraphMaker:
@@ -15,6 +17,7 @@ class GraphMaker:
             'vert' : '#00E054',
             'bleu' : '#40BCF4'
         }
+        self.colors=list(self.PALETTE.values())
 
     def general_metrics_div(self, metrics):
         # metrics = [(val, label, icon), ...]
@@ -34,17 +37,19 @@ class GraphMaker:
 
         div_content = f"""
         <div class="metrics-grid">
-            <div class="metrics-title">You have watched...</div>
             <div class="metrics-row">
                 {''.join(make_block(metric, palette[i % len(palette)]) for i, metric in enumerate(first_row))}
             </div>
-            <div class="metrics-title">Your watchlist contains...</div>
+        </div>
+        """
+        div_content2 = f"""
+        <div class="metrics-grid">
             <div class="metrics-row">
                 {''.join(make_block(metric, palette[(i+3) % len(palette)]) for i, metric in enumerate(second_row))}
             </div>
         </div>
         """
-        return div_content
+        return div_content,div_content2
 
     def graph_genre(self, df) :
 
@@ -127,21 +132,22 @@ class GraphMaker:
 
     def graph_director(self, df):
         colors = [self.PALETTE['orange'], self.PALETTE['vert'], self.PALETTE['bleu']]
-        color_seq = [colors[i % len(colors)] for i in range(len(df))]
+        color_seq = [colors[i % len(colors)] for i in range(25)]
 
         fig = px.bar(
             df,
             x='Director',
-            y='Number of Movies',
-            text='Number of Movies',
+            y='Count',
+            text='Count',
             color='Director',
             color_discrete_sequence=color_seq,
-            labels={'Director': 'Director', 'Number of Movies': 'Number of Movies'},
+            custom_data='MoviesText',
+            #labels={'Director': 'Director', 'Number of Movies': 'Number of Movies'},
         )
 
         fig.update_traces(
             textposition='inside',
-            hovertemplate="<b>%{x}</b><br>%{y} films<extra></extra>"
+            hovertemplate='<b>%{x}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
         )
 
         fig.update_layout(
@@ -169,25 +175,29 @@ class GraphMaker:
 
     def graph_actor(self, df):
 
-        nb_actor = df.sort_values("Number of Movies", ascending=False).reset_index(drop=True)
+        #nb_actor = df.sort_values("Number of Movies", ascending=False).reset_index(drop=True)
         colors = [self.PALETTE['orange'], self.PALETTE['vert'], self.PALETTE['bleu']]
-        color_seq = [colors[i % len(colors)] for i in range(len(nb_actor))]
+        color_seq = [colors[i % len(colors)] for i in range(25)]
 
         fig = px.bar(
-            nb_actor,
-            x='Actors',
-            y='Number of Movies',
-            text='Number of Movies',
-            color='Actors',
+            df,
+            x='Actor',
+            y='Count',
+            text='Count',
+            color='Actor',
             color_discrete_sequence=color_seq,
-            labels={'Actor': 'Actors', 'Number of Movies': 'Number of Movies'},
+            custom_data='MoviesText',
+            #labels={'Actor': 'Actors', 'Number of Movies': 'Number of Movies'},
         )
 
+        # fig.update_traces(
+        #     textposition='inside',
+        #     hovertemplate="<b>%{x}</b><br>%{y} films<extra></extra>"
+        # )
         fig.update_traces(
             textposition='inside',
-            hovertemplate="<b>%{x}</b><br>%{y} films<extra></extra>"
+            hovertemplate='<b>%{x}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
         )
-
         fig.update_layout(
             xaxis=dict(
                 tickangle=-35,
@@ -244,11 +254,13 @@ class GraphMaker:
             text='Number',
             color='FiveYearBin',
             color_discrete_sequence=[self.PALETTE['orange'], self.PALETTE['vert'], self.PALETTE['bleu']],
-            orientation='h'
+            orientation='h',
+            custom_data=["MoviesText"],
         )
 
         fig.update_traces(
-            hovertemplate='<b>%{y}</b><br>%{x}<extra></extra>',
+            hovertemplate='<b>%{y}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
+            #hovertemplate='<b>%{y}</b><br>%{x}<extra></extra>',
             marker_line_color="#444",
             textfont_size=14,
             textposition="outside"
@@ -310,41 +322,113 @@ class GraphMaker:
 
         return fig
 
-    def graph_rating_director(self, df_plot, nb_films_par_director):
+    def graph_rating_director(self, df_plot):
+        colors = [self.PALETTE['orange'], self.PALETTE['vert']]
+        color_seq = [colors[i % len(colors)] for i in range(25)]
         fig = px.bar(
-            nb_films_par_director,
+            df_plot,
             x='Director',
-            y='Number of movie',
-            title='Top 25 most viewed directors and their average rating',
-            labels={'Director': 'Director', 'Number of movie': 'Number of movie'},
-            text='Number of movie'
+            y='Nb_Films',
+            text='Nb_Films',
+            color='Director',
+            color_discrete_sequence=color_seq,
+            custom_data="MoviesText"
         )
-        fig.add_scatter(x=df_plot['Director'],y=df_plot['Moyenne_Rating'], name='Mean Rating Letterboxd',mode='lines+markers')
-        fig.update_layout(xaxis_tickangle=-45)
+        for trace in fig.data:
+            if trace.type == 'bar':
+                trace.showlegend = False
+        fig.update_traces(
+            textposition='inside',
+            hovertemplate='<b>%{x}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
+        )
+        fig.update_layout(
+            xaxis=dict(
+                tickangle=-35,
+                showgrid=False,
+                tickfont=dict(size=14),
+                title_font=dict(size=16),
+                fixedrange=True
+            ),
+            yaxis=dict(
+                title='Number of Movies',
+                showgrid=True,
+                tickmode='array',
+                tickfont=dict(size=14),
+                title_font=dict(size=16),
+                fixedrange=True
+            ),
+            legend=dict(
+                 yanchor="top",
+                 xanchor="right"
+            ),
+            bargap=0.17,
+            barcornerradius=8,
+            # showlegend=False,
+        )
+
+        fig.add_scatter(x=df_plot['Director'],y=df_plot['Moyenne_Rating'], name='Mean Rating',mode='lines+markers',line=dict(color=self.PALETTE['bleu']), marker=dict(color=self.PALETTE['bleu']),showlegend=True)
+        #fig.update_layout(xaxis_tickangle=-45)
         return fig
 
     def graph_rating_actor(self, df):
+        colors = [self.PALETTE['orange'], self.PALETTE['bleu']]
+        color_seq = [colors[i % len(colors)] for i in range(len(df))]
         fig = px.bar(
             df,
             x='Actor',
             y='Nb_Films',
-            title='Top 25 most viewed actors and their average rating',
-            labels={'Director': 'Director', 'Nb_Films': 'Number of movie'},
-            text='Nb_Films'
+            text='Nb_Films',
+            color='Actor',
+            color_discrete_sequence=color_seq,
+            custom_data="MoviesText"
         )
-        fig.add_scatter(x=df['Actor'],y=df['Moyenne_Rating'], name='Mean Rating Letterboxd',mode='lines+markers')
-        fig.update_layout(xaxis_tickangle=-45)
+        for trace in fig.data:
+            if trace.type == 'bar':
+                trace.showlegend = False
+        fig.update_traces(
+            textposition='inside',
+            hovertemplate='<b>%{x}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
+        )
+        fig.update_layout(
+            xaxis=dict(
+                tickangle=-35,
+                showgrid=False,
+                tickfont=dict(size=14),
+                title_font=dict(size=16),
+                fixedrange=True
+            ),
+            yaxis=dict(
+                title='Number of Movies',
+                showgrid=True,
+                tickmode='array',
+                tickfont=dict(size=14),
+                title_font=dict(size=16),
+                fixedrange=True
+            ),
+             legend=dict(
+                 yanchor="top",
+                 xanchor="right"
+            ),
+            bargap=0.17,
+            barcornerradius=8,
+            #showlegend=False,
+        )
+        fig.add_scatter(x=df['Actor'],y=df['Moyenne_Rating'], name='Mean Rating',mode='lines+markers',line=dict(color=self.PALETTE['vert']), marker=dict(color=self.PALETTE['vert']),showlegend=True)
+        #fig.update_layout(xaxis_tickangle=-45)
         return fig
 
     def graph_genre_rating(self, df):
         fig = go.Figure()
-
+        colors = [self.PALETTE['vert'], self.PALETTE['bleu']]
+        color_seq = [colors[i % len(colors)] for i in range(len(df))]
         fig.add_trace(go.Bar(
             x=df['Genre'],
             y=df['Nombre de films'],
             name='Number of movie',
             yaxis='y1',
-            text=df['Nombre de films']
+            text=df['Nombre de films'],
+            marker_color=color_seq,
+            showlegend=False
         ))
 
         fig.add_trace(go.Scatter(
@@ -352,40 +436,91 @@ class GraphMaker:
             y=df['Moyenne_Rating'],
             name='Mean rating',
             yaxis='y2',
-            mode='lines+markers'
+            mode='lines+markers',
+            marker_color=self.PALETTE['orange'],
+            showlegend=True
         ))
 
         fig.update_layout(
-            title='Number of films and average rating by genre',
-            xaxis=dict(title='Genre', tickangle=-45),
+            xaxis=dict(
+                title='Genre',
+                tickangle=-35,
+                showgrid=False,
+                tickfont=dict(size=14),
+                title_font=dict(size=16),
+                fixedrange=True),
             yaxis=dict(
-                title='Number of movie',
-                side='left'
+                title='Number of Movies',
+                showgrid=True,
+                tickmode='array',
+                tickfont=dict(size=14),
+                title_font=dict(size=16),
+                fixedrange=True
             ),
             yaxis2=dict(
                 title='Mean rating',
                 overlaying='y',
                 side='right',
                 showgrid=False,
+                fixedrange=True,
                 range=[df['Moyenne_Rating'].min() - 0.5, df['Moyenne_Rating'].max() + 0.5]  # échelle personnalisée ici
             ),
-            legend=dict(x=1.02, y=0.99),
-            height=500
+            legend=dict(
+                 yanchor="top",
+                 xanchor="right"
+            ),
+            #legend=dict(x=1.02, y=0.99),
+            #height=500
+            bargap=0.17,
+            barcornerradius=8,
+            #showlegend=False,
         )
         return fig
 
     def graph_comparaison_rating(self, df, rating_df):
-        fig = px.bar(df, x='imdbRating', y='Number of movie', title="Breakdown of IMDB ratings and your own ratings",labels={'imdbRating': 'Rating', 'Number of movie': 'Number of movie'},text='Number of movie',)
+        fig = px.bar(df, x='imdbRating', y='Number of movie',labels={'imdbRating': 'Rating', 'Number of movie': 'Number of movie'},text='Number of movie',color_discrete_sequence=[self.PALETTE['vert']])
         fig.data[0].name = "Rating IMDB"
+        fig.data[0].showlegend = True
 
         letterboxd_rate = rating_df.groupby('Rating').size().reset_index(name='Number of movie')
         
-        fig.add_bar(x=letterboxd_rate['Rating'], y=letterboxd_rate['Number of movie'], name='Rating Letterboxd',text=letterboxd_rate['Number of movie'])
-        fig.update_layout(barmode='group', showlegend=True)
-
+        fig.add_bar(x=letterboxd_rate['Rating'], y=letterboxd_rate['Number of movie'], name='Rating Letterboxd',text=letterboxd_rate['Number of movie'],marker=dict(color=self.PALETTE['bleu']))
+        fig.update_layout(
+            xaxis=dict(
+                #tickangle=-35,
+                showgrid=False,
+                tickfont=dict(size=14),
+                title_font=dict(size=16),
+                fixedrange=True,
+                #tick0=0,      # point de départ
+                #dtick=0.5,    # intervalle
+                #range=[0, 10] 
+            ),
+            yaxis=dict(
+                title='Number of Movies',
+                showgrid=True,
+                tickmode='array',
+                tickfont=dict(size=14),
+                title_font=dict(size=16),
+                fixedrange=True
+            ),
+            legend=dict(
+                 yanchor="top",
+                 xanchor="right"
+            ),
+            bargap=0.17,
+            barcornerradius=8,
+            showlegend=True,
+            barmode='group'
+        )
         return fig
 
-    def graph_generate_wordcloud(self, wc):
+    def random_color_func(self,word, font_size, position, orientation, random_state=None, **kwargs):
+        return random.choice(self.colors)
+
+    def graph_generate_wordcloud(self, text,stopword):
+        wordcloud = WordCloud(stopwords=stopword,width=800, height=400, background_color="#0e1117",max_words=120,color_func=self.random_color_func)
+        wc=wordcloud.generate(text)
         fig, ax = plt.subplots(figsize = (20, 10),facecolor='k')
         ax.imshow(wc, interpolation = 'bilinear')
         plt.axis('off')
@@ -555,7 +690,6 @@ class GraphMaker:
         two_div = f"""
         <div class="two_div-five-flex">
         <div class="two_div-five-col">
-            <div class="two_div-five-title">The 10 films {final_text}</div>
             <div class="two_div-five-grid">
             {''.join([
                 f'<div class="two_div-five-container"><div class="two_div-five-poster"><img src="{img}"><span class="two_div-five-tooltip">{title} ({year})</span></div>'

@@ -1,0 +1,2 @@
+WATCHLIST="watchlist"
+WATCHED="watched"

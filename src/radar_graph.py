@@ -128,7 +128,7 @@ def compute_explorateur_marker(ref, watched_df):
     return marker
 
 def compute_consensuel_marker(rating_df):
-    marker = round(rating_df['diff_rating'].mean() if 'diff_rating' in rating_df.columns else 0, 3)
+    marker = round(rating_df['diff_rating'].mean() if ('diff_rating' in rating_df.columns and len(rating_df['diff_rating']) > 0) else 0, 3)
     return marker
 
 def compute_eclectique_marker(watched_df):

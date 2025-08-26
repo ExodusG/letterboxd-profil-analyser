@@ -157,6 +157,14 @@ def make_movies_text(movie_list):
         movies_text += f"\n...and {len(movie_list) - 10} more"
     return movies_text
 
+def make_movies_text_split(movie_list):
+    movie_list=movie_list.split(', ')
+    movies = movie_list[:10]
+    movies_text = "\n".join(f"• {m}<br>" for m in movies)
+    if len(movie_list) > 10:
+        movies_text += f"\n...and {len(movie_list) - 10} more"
+    return movies_text
+
 def erreur_api():
       st.warning('The OMDB API is not working properly, try again later...', icon="⚠️")
 

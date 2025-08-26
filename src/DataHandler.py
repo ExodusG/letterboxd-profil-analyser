@@ -4,7 +4,6 @@ import pandas as pd
 import tempfile
 from datetime import datetime
 import pycountry
-from wordcloud import WordCloud
 from stop_words import get_stop_words
 import os
 
@@ -13,7 +12,7 @@ import src.ApiHandler as api_handler
 import src.GraphMaker as graph_maker
 from src.utils import *
 from src.radar_graph import compute_radar_stats_for_sheet
-
+from src.constants import WATCHLIST, WATCHED
 
 class DataHandler:
 
@@ -71,6 +70,12 @@ class DataHandler:
         my_bar.empty()
         return all_movies
     
+    def watchlist_empty(self):
+        return self.watchlist.empty
+    
+    def rating_empty(self):
+        return self.rating.empty
+
     def setup_user_upload(self, uploaded_files, my_bar,exemple):
         """ Configure les données de l'utilisateur à partir du fichier zip téléchargé"""
         if uploaded_files is not None:
@@ -198,11 +203,10 @@ class DataHandler:
 
     def genre(self, key):
         """ Prépare les data pour le GraphMaker et renvoie le graphique à l'interface"""
-        match key:
-            case "watched":
-                df_genres = self.watched_df[['Name', 'Year','Genre']].dropna()
-            case "watchlist":
-                df_genres = self.watchlist_df[['Name', 'Year','Genre']].dropna()
+        if key == WATCHED:
+            df_genres = self.watched_df[['Name', 'Year','Genre']].dropna()
+        elif key == WATCHLIST:
+            df_genres = self.watchlist_df[['Name', 'Year','Genre']].dropna()
 
         df_genres['Genre'] = df_genres['Genre'].str.split(', ')
         df_genres_exploded = df_genres.explode('Genre')
@@ -210,29 +214,76 @@ class DataHandler:
         return self.graph_maker.graph_genre(df_genres_exploded)
     
     def actor(self, key):
-        match key:
-            case "watched":
-                nb_actor = self.watched_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-            case "watchlist":
-                nb_actor = self.watchlist_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-        nb_actor.columns = ['Actors', 'Number of Movies']
-        return self.graph_maker.graph_actor(nb_actor)
+        if key == WATCHED:
+            #nb_actor = self.watched_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+            df=self.watched_df.copy()
+        elif key == WATCHLIST:
+            df=self.watchlist_df
+            #nb_actor = self.watchlist_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+        df_exploded = (
+            df.dropna(subset=['Actors'])
+            .assign(Actor=df['Actors'].str.split(', '))
+            .explode('Actor')
+        )
+
+        # Top 25 acteurs
+        top_actors = df_exploded['Actor'].value_counts().head(25).index
+        df_top = df_exploded[df_exploded['Actor'].isin(top_actors)]
+
+        # On regroupe : nb de films + titres associés
+        actor_movies = (
+            df_top.groupby('Actor')
+            .agg(
+                Count=('Title', 'count'),
+                Movies=('Title', lambda x: ', '.join(sorted(set(x))))
+            )
+            .reset_index()
+            .sort_values('Count', ascending=False)
+        )
+        actor_movies['MoviesText'] = actor_movies['Movies'].apply(make_movies_text_split)
+        #nb_actor.columns = ['Actors', 'Number of Movies']
+        return self.graph_maker.graph_actor(actor_movies)
 
     def director(self, key):
-        match key:
-            case "watched":
-                nb_real = self.watched_df['Director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-            case "watchlist":
-                nb_real = self.watchlist_df['Director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+        if key == WATCHED:
+            nb_real = self.watched_df['Director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+        elif key == WATCHLIST:
+            nb_real = self.watchlist_df['Director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
         nb_real.columns = ['Director', 'Number of Movies']
-        return self.graph_maker.graph_director(nb_real)
+        if key == WATCHED:
+            #nb_actor = self.watched_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+            df=self.watched_df.copy()
+        elif key == WATCHLIST:
+            df=self.watchlist_df
+            #nb_actor = self.watchlist_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+        df_exploded = (
+            df.dropna(subset=['Director'])
+            .assign(Actor=df['Director'].str.split(', '))
+            .explode('Director')
+        )
+
+        # Top 25 acteurs
+        top_actors = df_exploded['Director'].value_counts().head(25).index
+        df_top = df_exploded[df_exploded['Director'].isin(top_actors)]
+
+        # On regroupe : nb de films + titres associés
+        director_movies = (
+            df_top.groupby('Director')
+            .agg(
+                Count=('Title', 'count'),
+                Movies=('Title', lambda x: ', '.join(sorted(set(x))))
+            )
+            .reset_index()
+            .sort_values('Count', ascending=False)
+        )
+        director_movies['MoviesText'] = director_movies['Movies'].apply(make_movies_text_split)
+        return self.graph_maker.graph_director(director_movies)
 
     def famous(self, key):
-        match key:
-            case "watched":
-                movies_rating = self.watched_df.copy()
-            case "watchlist":
-                movies_rating = self.watchlist_df.copy()
+        if key == WATCHED:
+            movies_rating = self.watched_df.copy()
+        elif key == WATCHLIST:
+            movies_rating = self.watchlist_df.copy()
         movies_rating['imdbVotes'] = movies_rating['imdbVotes'].replace("N/A", np.nan)
         movies_rating['imdbVotes'] = movies_rating['imdbVotes'].replace("", np.nan)
         movies_rating = movies_rating.dropna(subset=['imdbVotes'])
@@ -257,11 +308,10 @@ class DataHandler:
                 movies_text += f"<br><span style='color:#888; font-size:12px;'>...and {len(movie_list) - 10} more</span>"
             return movies_text
 
-        match key:
-            case "watched":
-                habit = self.watched_df.copy()
-            case "watchlist":
-                habit = self.watchlist_df.copy()
+        if key == WATCHED:
+            habit = self.watched_df.copy()
+        elif key == WATCHLIST:
+            habit = self.watchlist_df.copy()
 
         result = compute_categories(self.all_movies, habit)
         result['Films'] = result['category'].apply(
@@ -272,13 +322,12 @@ class DataHandler:
         return self.graph_maker.cinephile_graph(result)
 
     def cinephile_div(self, key):
-        match key:
-            case "watched":
-                habit = self.watched_df.copy()
-                text = "you've watched"
-            case "watchlist":
-                habit = self.watchlist_df.copy()
-                text = "you want to see"
+        if key== WATCHED:
+            habit = self.watched_df.copy()
+            text = "you've watched"
+        elif key == WATCHLIST:
+            habit = self.watchlist_df.copy()
+            text = "you want to see"
         #result = compute_categories(self.all_movies, habit)
 
         # on crée un df avec les 4 films les moins vus pour Obscure et les 4 films les plus vus pour Mainstream
@@ -292,11 +341,10 @@ class DataHandler:
 ### DECADE
 
     def decade_graph(self, key):
-        match key:
-            case "watched":
-                df = self.watched_df.copy()
-            case "watchlist":
-                df = self.watchlist_df.copy()
+        if key == WATCHED:
+            df = self.watched_df.copy()
+        elif key == WATCHLIST:
+            df = self.watchlist_df.copy()
 
         df = df.dropna(subset=['Year']).copy()
         df['Year'] = df['Year'].astype(int)
@@ -316,13 +364,12 @@ class DataHandler:
         return self.graph_maker.graph_decade(grouped)
     
     def decade_div(self, key):
-        match key:
-            case "watched":
-                df_decade = self.watched_df.copy()
-                text = "you've watched"
-            case "watchlist":
-                df_decade = self.watchlist_df.copy()
-                text = "you want to see"
+        if key == WATCHED:
+            df_decade = self.watched_df.copy()
+            text = "you've watched"
+        elif key == WATCHLIST:
+            df_decade = self.watchlist_df.copy()
+            text = "you want to see"
         df_decade=df_decade.sort_values('Year', ascending=True)
         oldest_films = df_decade.head(4)
         newest_films = df_decade.tail(4)
@@ -332,11 +379,10 @@ class DataHandler:
 ### 
 
     def runtime_bar(self, key):
-        match key:
-            case "watched":
-                df = self.watched_df.copy()
-            case "watchlist":
-                df = self.watchlist_df.copy()
+        if key == WATCHED:
+            df = self.watched_df.copy()
+        elif key == WATCHLIST:
+            df = self.watchlist_df.copy()
         df = df[(df['Runtime'] >= 10) & (df['Runtime'] <= 300)]
         #bins = list(range(df['Runtime'].min(), df['Runtime'].max() + 10, 10))  # Bins de 10 minutes de 0 à 300 minutes
         bins = list(range(10, 301, 10))
@@ -347,11 +393,10 @@ class DataHandler:
         return self.graph_maker.graph_runtime_bar(df)
 
     def mapW(self, key):
-        match key:
-            case "watched":
-                df_country = self.watched_df.copy()
-            case "watchlist":
-                df_country = self.watchlist_df.copy()
+        if key == WATCHED:
+            df_country = self.watched_df.copy()
+        elif key == WATCHLIST:
+            df_country = self.watchlist_df.copy()
         df_country['Country'] = df_country['Country'].dropna().str.split(', ')
         df_genres_exploded = df_country.explode('Country')
         genre_counts = df_genres_exploded['Country'].value_counts().reset_index()
@@ -361,13 +406,12 @@ class DataHandler:
 
     def mapW_div(self, country,key):
         """ Affiche 4 films d'un pays sélectionné sur la carte"""
-        match key:
-            case "watched":
-                df_country = self.watched_df.copy()
-                text = "you watched from "
-            case "watchlist":
-                df_country = self.watchlist_df.copy()
-                text = "you want to watch from "
+        if key == WATCHED:
+            df_country = self.watched_df.copy()
+            text = "you watched from "
+        elif key == WATCHLIST:
+            df_country = self.watchlist_df.copy()
+            text = "you want to watch from "
         df_country['Country'] = df_country['Country'].dropna().str.split(', ')
         df_genres_exploded = df_country.explode('Country')
         countries = {country.name: country.alpha_3 for country in pycountry.countries}
@@ -400,33 +444,85 @@ class DataHandler:
                 text= "you have most underrated"
         div= self.graph_maker.two_div_five_films(df.head(5), df.tail(5), text)
         return div
+    
     def rating_director(self):
-        nb_real = self.rating_df['Director'].value_counts().head(25)
-        df_top_directors = self.rating_df[self.rating_df['Director'].isin(nb_real.index)]
-        nb_films_par_director = df_top_directors['Director'].value_counts().reset_index()
-        nb_films_par_director.columns = ['Director', 'Number of movie']
-        mean_rating = df_top_directors.groupby('Director')['Rating'].mean().rename('Moyenne_Rating').reset_index()
-        mean_rating.columns = ['Director', 'Moyenne_Rating']
-        df_plot = pd.merge(nb_films_par_director, mean_rating, on='Director')
-        return self.graph_maker.graph_rating_director(df_plot, nb_films_par_director)
+        # nb_real = self.rating_df['Director'].value_counts().head(25)
+        # df_top_directors = self.rating_df[self.rating_df['Director'].isin(nb_real.index)]
+        # nb_films_par_director = df_top_directors['Director'].value_counts().reset_index()
+        # nb_films_par_director.columns = ['Director', 'Number of movie']
+        # mean_rating = df_top_directors.groupby('Director')['Rating'].mean().rename('Moyenne_Rating').reset_index()
+        # mean_rating.columns = ['Director', 'Moyenne_Rating']
+        # df_plot = pd.merge(nb_films_par_director, mean_rating, on='Director')
+        # Top 25 réalisateurs (par nombre de films)
+        top_directors = (
+            self.rating_df['Director']
+            .value_counts()
+            .head(25)
+            .index
+        )
+
+        # Filtrer uniquement ces réalisateurs
+        df_top_directors = self.rating_df[self.rating_df['Director'].isin(top_directors)]
+
+        # Agrégation en une seule passe
+        df_plot = (
+            df_top_directors.groupby('Director')
+            .agg(
+                Nb_Films=('Title', 'count'),
+                Moyenne_Rating=('Rating', 'mean'),
+                Movies=('Title', lambda x: ', '.join(x))
+            )
+            .reset_index()
+            .sort_values('Nb_Films', ascending=False)
+        )
+        df_plot['MoviesText'] = df_plot['Movies'].apply(make_movies_text_split)
+        return self.graph_maker.graph_rating_director(df_plot)
 
     def rating_actor(self):
-        nb_actor = self.rating_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25)
-        top_actors = nb_actor.index
+        # nb_actor = self.rating_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25)
+        # top_actors = nb_actor.index
 
-        df_exploded = self.rating_df.dropna(subset=['Actors']).copy()
-        df_exploded['Actor'] = df_exploded['Actors'].str.split(', ')
-        df_exploded = df_exploded.explode('Actor')
+        # df_exploded = self.rating_df.dropna(subset=['Actors']).copy()
+        # df_exploded['Actor'] = df_exploded['Actors'].str.split(', ')
+        # df_exploded = df_exploded.explode('Actor')
 
+        # df_top_actors = df_exploded[df_exploded['Actor'].isin(top_actors)]
+
+        # nb_films_par_actor = df_top_actors['Actor'].value_counts().reset_index()
+        # nb_films_par_actor.columns = ['Actor', 'Nb_Films']
+
+        # mean_rating_actor = df_top_actors.groupby('Actor')['Rating'].mean().reset_index()
+        # mean_rating_actor.columns = ['Actor', 'Moyenne_Rating']
+
+        # df_actor_plot = pd.merge(nb_films_par_actor, mean_rating_actor, on='Actor')
+        df_exploded = (
+            self.rating_df.dropna(subset=['Actors'])
+            .assign(Actor=self.rating_df['Actors'].dropna().str.split(', '))
+            .explode('Actor')
+        )
+
+        # Top 25 acteurs (par nombre de films)
+        top_actors = (
+            df_exploded['Actor'].value_counts()
+            .head(25)
+            .index
+        )
+
+        # Garder uniquement les top 25
         df_top_actors = df_exploded[df_exploded['Actor'].isin(top_actors)]
 
-        nb_films_par_actor = df_top_actors['Actor'].value_counts().reset_index()
-        nb_films_par_actor.columns = ['Actor', 'Nb_Films']
-
-        mean_rating_actor = df_top_actors.groupby('Actor')['Rating'].mean().reset_index()
-        mean_rating_actor.columns = ['Actor', 'Moyenne_Rating']
-
-        df_actor_plot = pd.merge(nb_films_par_actor, mean_rating_actor, on='Actor')
+        # Agréger en une seule passe
+        df_actor_plot = (
+            df_top_actors.groupby('Actor')
+            .agg(
+                Nb_Films=('Title', 'count'),
+                Moyenne_Rating=('Rating', 'mean'),
+                Movies=('Title', lambda x: ', '.join(x))
+            )
+            .reset_index()
+            .sort_values('Nb_Films', ascending=False)
+        )
+        df_actor_plot['MoviesText'] = df_actor_plot['Movies'].apply(make_movies_text_split)
         return self.graph_maker.graph_rating_actor(df_actor_plot)
 
     def genre_rating(self):
@@ -451,14 +547,11 @@ class DataHandler:
         rate = rate.groupby('imdbRating').size().reset_index(name='Number of movie')
         return self.graph_maker.graph_comparaison_rating(rate, self.rating_df)
 
-    # TODO: séparer la logique de génération de wordcloud
     def generate_wordcloud(self):
         if not self.corpus.empty:
-            stopwords = set(get_stop_words('fr')) | set(get_stop_words('en'))
-            wordcloud = WordCloud(stopwords=stopwords,width=800, height=400, background_color="black",max_words=120)
+            stopwords = set(get_stop_words('fr')) | set(get_stop_words('en')) |set(get_stop_words('es'))
             text = " ".join(self.corpus)
-            wc=wordcloud.generate(text)
-            return self.graph_maker.graph_generate_wordcloud(wc)
+            return self.graph_maker.graph_generate_wordcloud(text,stopwords)
 
     def radar_graph(self):
         fig = self.graph_maker.graph_radar(self.radar_stats)
