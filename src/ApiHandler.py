@@ -21,6 +21,7 @@ class ApiHandler:
         setup_sentry()
 
     ### PARTIE GSPREAD ###
+    
     def setup_gspread_connection(self):
         """ Configure la connexion à Google Sheets avec les informations d'identification du service"""
         credentials = service_account.Credentials.from_service_account_info(
@@ -90,6 +91,24 @@ class ApiHandler:
         if(st.secrets['prod']==True):
             cleaned_rows = df_errors.applymap(sanitize).values.tolist()
             self.error_sheet.append_rows(cleaned_rows)
+
+    def get_all_means(self) :
+        # Récupère les données de la feuille "profiles_stats" au format DataFrame pandas
+        extraction = self.get_data_from_sheet("profiles_stats")
+        res = {}
+        res["Consommateur"] = round(extraction["nb_films_vus"].mean())
+        res["Explorateur"] = round(extraction["ratio_peu_vus"].mean(), 2)*100
+        res["Consensuel"] = round(extraction["moyenne_diff_rating"].mean(), 3)
+
+        # Pour la colonne "ratio_par_genre", on récupère le JSON de la première ligne
+        ratio_str = extraction["ratio_par_genre"].iloc[0]
+        ratio_dict = json.loads(ratio_str)
+        # Extraire uniquement le nom du premier genre (première clé) apparaissant dans le JSON
+        res["Éclectique"] = next(iter(ratio_dict.keys()))
+
+        res["Actif"] = round(extraction["nb_interactions"].mean())
+
+        return res
 
     ### PARTIE OMDB API ###
 

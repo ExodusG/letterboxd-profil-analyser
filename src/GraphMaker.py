@@ -4,26 +4,22 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import src.utils as utils
 from typing import Any, List
 from wordcloud import WordCloud
 import random
 from plotly.subplots import make_subplots
+from src.constants import PALETTE
 
 class GraphMaker:
     
     def __init__(self):
-        self.PALETTE = {
-            'orange' : '#FF8C00',
-            'vert' : '#00E054',
-            'bleu' : '#40BCF4'
-        }
-        self.colors=list(self.PALETTE.values())
+        self.colors=list(PALETTE.values())
 
     def general_metrics_div(self, metrics):
-        # metrics = [(val, label, icon), ...]
         first_row = metrics[:3]
         second_row = metrics[3:5]
-        palette = [self.PALETTE['orange'], self.PALETTE['vert'], self.PALETTE['bleu']]
+        palette = [PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]
 
         def make_block(metric, color):
             value, label, icon = metric
@@ -36,6 +32,7 @@ class GraphMaker:
             """
 
         div_content = f"""
+        <h2 class="metrics-title">You have watched...</h2>
         <div class="metrics-grid">
             <div class="metrics-row">
                 {''.join(make_block(metric, palette[i % len(palette)]) for i, metric in enumerate(first_row))}
@@ -43,13 +40,22 @@ class GraphMaker:
         </div>
         """
         div_content2 = f"""
+        <h2 class="metrics-title">Your watchlist contains...</h2>
         <div class="metrics-grid">
             <div class="metrics-row">
                 {''.join(make_block(metric, palette[(i+3) % len(palette)]) for i, metric in enumerate(second_row))}
             </div>
         </div>
         """
-        return div_content,div_content2
+
+        div = f"""
+        <div class="metrics-container">
+            {div_content}
+            {div_content2}
+        </div>
+        """
+
+        return div
 
     def graph_genre(self, df) :
 
@@ -65,7 +71,7 @@ class GraphMaker:
         fig.add_trace(go.Bar(
             x=bin_pos,
             y=genre_counts['Count'],
-            marker_color=self.PALETTE['orange'],
+            marker_color=PALETTE['orange'],
             opacity=0.10,
             width=0.95,
             showlegend=False,
@@ -89,8 +95,8 @@ class GraphMaker:
             # Jitter horizontal centré sur la barre
             x = bin_pos[i] + np.random.uniform(-0.35, 0.35, n_points)
 
-            palette_keys = list(self.PALETTE.keys())
-            BIN_COLORS = [self.PALETTE[k] for k in palette_keys]
+            palette_keys = ['orange', 'vert', 'bleu']
+            BIN_COLORS = [PALETTE[k] for k in palette_keys]
             fig.add_trace(go.Scatter(
                 x=x,
                 y=y,
@@ -131,7 +137,7 @@ class GraphMaker:
         return fig
 
     def graph_director(self, df):
-        colors = [self.PALETTE['orange'], self.PALETTE['vert'], self.PALETTE['bleu']]
+        colors = [PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]
         color_seq = [colors[i % len(colors)] for i in range(25)]
 
         fig = px.bar(
@@ -176,7 +182,7 @@ class GraphMaker:
     def graph_actor(self, df):
 
         #nb_actor = df.sort_values("Number of Movies", ascending=False).reset_index(drop=True)
-        colors = [self.PALETTE['orange'], self.PALETTE['vert'], self.PALETTE['bleu']]
+        colors = [PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]
         color_seq = [colors[i % len(colors)] for i in range(25)]
 
         fig = px.bar(
@@ -228,17 +234,18 @@ class GraphMaker:
             values=result['number'],
             textinfo='label+percent',
             hole=0.7,
-            marker=dict(colors=[self.PALETTE['orange'], self.PALETTE['vert'], self.PALETTE['bleu']]),
+            marker=dict(colors=[PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]),
             textfont=dict(size=16),
             insidetextorientation='auto',
             pull=[0.3, 0.2, 0.1, 0],  # Pull the slices out a bit for emphasis
             rotation=90,
-            sort=False
+            sort=False,
+            customdata=result['MoviesText'],
         ))
 
         fig.update_traces(
             showlegend=False,
-            hovertemplate='<b>%{label}</b><br>%{value} films<extra></extra>'
+            hovertemplate='<b>%{label}</b><br>%{customdata}<extra></extra>'
         )
 
         fig.update_layout(
@@ -253,7 +260,7 @@ class GraphMaker:
             y='FiveYearBin',
             text='Number',
             color='FiveYearBin',
-            color_discrete_sequence=[self.PALETTE['orange'], self.PALETTE['vert'], self.PALETTE['bleu']],
+            color_discrete_sequence=[PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']],
             orientation='h',
             custom_data=["MoviesText"],
         )
@@ -309,10 +316,11 @@ class GraphMaker:
             oceancolor="#0E1117",
             showframe=False,
             showcountries=True,
-            countrycolor="gray"
+            countrycolor="gray",
+            projection_type="natural earth"
         )
 
-        fig.update_layout(
+        fig.update_layout( 
             geo_bgcolor="#0E1117",
             plot_bgcolor="#0E1117",
             paper_bgcolor="#0E1117",
@@ -323,7 +331,7 @@ class GraphMaker:
         return fig
 
     def graph_rating_director(self, df_plot):
-        colors = [self.PALETTE['orange'], self.PALETTE['vert']]
+        colors = [PALETTE['orange'], PALETTE['vert']]
         color_seq = [colors[i % len(colors)] for i in range(25)]
         fig = px.bar(
             df_plot,
@@ -366,12 +374,12 @@ class GraphMaker:
             # showlegend=False,
         )
 
-        fig.add_scatter(x=df_plot['Director'],y=df_plot['Moyenne_Rating'], name='Mean Rating',mode='lines+markers',line=dict(color=self.PALETTE['bleu']), marker=dict(color=self.PALETTE['bleu']),showlegend=True)
+        fig.add_scatter(x=df_plot['Director'],y=df_plot['Moyenne_Rating'], name='Mean Rating',mode='lines+markers',line=dict(color=PALETTE['bleu']), marker=dict(color=PALETTE['bleu']),showlegend=True)
         #fig.update_layout(xaxis_tickangle=-45)
         return fig
 
     def graph_rating_actor(self, df):
-        colors = [self.PALETTE['orange'], self.PALETTE['bleu']]
+        colors = [PALETTE['orange'], PALETTE['bleu']]
         color_seq = [colors[i % len(colors)] for i in range(len(df))]
         fig = px.bar(
             df,
@@ -413,13 +421,13 @@ class GraphMaker:
             barcornerradius=8,
             #showlegend=False,
         )
-        fig.add_scatter(x=df['Actor'],y=df['Moyenne_Rating'], name='Mean Rating',mode='lines+markers',line=dict(color=self.PALETTE['vert']), marker=dict(color=self.PALETTE['vert']),showlegend=True)
+        fig.add_scatter(x=df['Actor'],y=df['Moyenne_Rating'], name='Mean Rating',mode='lines+markers',line=dict(color=PALETTE['vert']), marker=dict(color=PALETTE['vert']),showlegend=True)
         #fig.update_layout(xaxis_tickangle=-45)
         return fig
 
     def graph_genre_rating(self, df):
         fig = go.Figure()
-        colors = [self.PALETTE['vert'], self.PALETTE['bleu']]
+        colors = [PALETTE['vert'], PALETTE['bleu']]
         color_seq = [colors[i % len(colors)] for i in range(len(df))]
         fig.add_trace(go.Bar(
             x=df['Genre'],
@@ -437,7 +445,7 @@ class GraphMaker:
             name='Mean rating',
             yaxis='y2',
             mode='lines+markers',
-            marker_color=self.PALETTE['orange'],
+            marker_color=PALETTE['orange'],
             showlegend=True
         ))
 
@@ -478,13 +486,13 @@ class GraphMaker:
         return fig
 
     def graph_comparaison_rating(self, df, rating_df):
-        fig = px.bar(df, x='imdbRating', y='Number of movie',labels={'imdbRating': 'Rating', 'Number of movie': 'Number of movie'},text='Number of movie',color_discrete_sequence=[self.PALETTE['vert']])
+        fig = px.bar(df, x='imdbRating', y='Number of movie',labels={'imdbRating': 'Rating', 'Number of movie': 'Number of movie'},text='Number of movie',color_discrete_sequence=[PALETTE['vert']])
         fig.data[0].name = "Rating IMDB"
         fig.data[0].showlegend = True
 
         letterboxd_rate = rating_df.groupby('Rating').size().reset_index(name='Number of movie')
         
-        fig.add_bar(x=letterboxd_rate['Rating'], y=letterboxd_rate['Number of movie'], name='Rating Letterboxd',text=letterboxd_rate['Number of movie'],marker=dict(color=self.PALETTE['bleu']))
+        fig.add_bar(x=letterboxd_rate['Rating'], y=letterboxd_rate['Number of movie'], name='Rating Letterboxd',text=letterboxd_rate['Number of movie'],marker=dict(color=PALETTE['bleu']))
         fig.update_layout(
             xaxis=dict(
                 #tickangle=-35,
@@ -518,7 +526,7 @@ class GraphMaker:
     def random_color_func(self,word, font_size, position, orientation, random_state=None, **kwargs):
         return random.choice(self.colors)
 
-    def graph_generate_wordcloud(self, text,stopword):
+    def graph_generate_wordcloud(self, text, stopword):
         wordcloud = WordCloud(stopwords=stopword,width=800, height=400, background_color="#0e1117",max_words=120,color_func=self.random_color_func)
         wc=wordcloud.generate(text)
         fig, ax = plt.subplots(figsize = (20, 10),facecolor='k')
@@ -539,7 +547,7 @@ class GraphMaker:
         fig.add_trace(go.Bar(
             x=bin_pos,
             y=runtime_counts['Count'],
-            marker_color=self.PALETTE['orange'],
+            marker_color=PALETTE['orange'],
             opacity=0.10,
             width=0.95,
             showlegend=False,
@@ -563,8 +571,8 @@ class GraphMaker:
             # Jitter horizontal centré sur la barre
             x = bin_pos[i] + np.random.uniform(-0.35, 0.35, n_points)
 
-            palette_keys = list(self.PALETTE.keys())
-            BIN_COLORS = [self.PALETTE[k] for k in palette_keys]
+            palette_keys = ['orange', 'vert', 'bleu']
+            BIN_COLORS = [PALETTE[k] for k in palette_keys]
             fig.add_trace(go.Scatter(
                 x=x,
                 y=y,
@@ -613,42 +621,56 @@ class GraphMaker:
 
         st.plotly_chart(fig)
 
-    def graph_radar(self, radar_stats):
-
-        scores_names = ['Consommateur', 'Explorateur', 'Consensuel', 'Éclectique', 'Actif']
-        scores_names_display = ['Consumer', 'Explorer', 'Consensus', 'Eclectic', 'Active']
-        scores_values = [radar_stats[score] for score in scores_names]
-
-        markers = radar_stats['nb_films_vus'], radar_stats['ratio_peu_vus'], radar_stats['moyenne_diff_rating'], radar_stats['ratio_par_genre'], radar_stats['nb_interactions']
+    def graph_radar(self, scores_values, scores_names_display, hover_texts):
 
         fig = go.Figure()
         fig.add_trace(go.Scatterpolar(
-            r=scores_values,  # Close the loop
+            r=scores_values,
             theta=scores_names_display,
             fill='toself',
-            name='Your Profile',
-            line=dict(color=self.PALETTE['orange'])
+            line=dict(color=PALETTE['bleu']),
+            line_width=0,
+            name='Scores',
+            hovertext=hover_texts,
+            hoverinfo='text'
         ))
-        fig.add_trace(go.Scatterpolar(
-            r=[50, 50, 50, 50, 50],  # Close the loop
-            theta=scores_names_display,
-            fill='toself',
-            name='Average Profile',
-            line=dict(color=self.PALETTE['bleu'])
-        ))
+
         fig.update_layout(
             polar=dict(
+                bgcolor=PALETTE['gris'],
                 radialaxis=dict(
                     visible=True,
-                    range=[0, 100]  # Adjust the range as needed
-                )
+                    range=[0, 100],
+                    showticklabels=False,
+                    ticks='',
+                    gridcolor=PALETTE['blanc'],
+                    showline=False
+                ),
+                angularaxis=dict(
+                    tickfont=dict(
+                        size=18,    
+                        color=PALETTE['blanc']
+                    ),
+                    gridcolor=PALETTE['blanc']
+                ),
             ),
-            showlegend=True,
-            title='Your Profile in the Radar',
-            title_x=0.5,
-            plot_bgcolor=self.PALETTE['blanc'],
-            font=dict(color=self.PALETTE['bleu'])
+            hoverlabel=dict(
+                bgcolor=PALETTE['gris'],
+                font_size=18,
+                font_color='white',
+                align='left'
+            ),
+            showlegend=False,
+            margin=dict(t=30, b=30, l=20, r=20),
+            height=550,
+            dragmode=False
         )
+
+        fig.update_traces(
+            marker=dict(size=12, color=PALETTE['bleu']),
+            selector=dict(type='scatterpolar')
+        )
+
         return fig
     
     def two_div_four_films(self, first_list, second_list, first_word, second_word, final_text):
@@ -787,8 +809,8 @@ class GraphMaker:
     ) -> go.Layout:
         layout = go.Layout(
             title=title,
-            margin=dict(t=10, b=50),
-            height=175,
+            margin=dict(t=0, b=0),
+            height=250,
             yaxis=dict(
                 showline=False,
                 showgrid=False,
@@ -811,15 +833,16 @@ class GraphMaker:
                 tickangle=0,
                 fixedrange=True
             ),
-            font={"size": 10, "color": "#9e9e9e"},
+            font={"size": 14, "color": PALETTE['blanc']},
             showlegend=False,
         )
         return layout
+    
     #TODO voir les couleurs de la palette
     #see https://github.com/brunorosilva/plotly-calplot/tree/main for more details (about the waffle plot)
     def waffle(self,df,month_pos,weekdays,weeknumber):
         GRAY = "#202831"
-        GREEN=self.PALETTE['vert']
+        GREEN=PALETTE['vert']
         z_values = df['count']
         if np.all(z_values == 0):
             colorscale = [[0, GRAY], [1, GRAY]]
@@ -836,25 +859,32 @@ class GraphMaker:
         month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
         layout = self.decide_layout("", month_names, month_pos)
 
+        df['films_list'] = df['films_list'].apply(
+            lambda x: '<br> • ' + x.replace(',', '<br> •') if x else ''
+        )
+
         fig = go.Heatmap(
-        x=weeknumber,
-        y=weekdays,
-        z=df['count'],
-        colorbar=dict(title='Compteur'),
-        xgap=1.5,
-        ygap=1.5,
-        showscale=False,
-        colorscale=colorscale,
-        zmin=0,
-        zmax=zmax,
-        name="",
-        hovertemplate=(
-                    "%{customdata[0]} <br>Week=%{x} <br>%{customdata[1]}=%{z} "),
-        customdata=np.stack((df['date'].astype(str), ["movie watched"] * df.shape[0]), axis=-1),
+            x=weeknumber,
+            y=weekdays,
+            z=df['count'],
+            colorbar=dict(title='Compteur'),
+            xgap=1.5,
+            ygap=1.5,
+            showscale=False,
+            colorscale=colorscale,
+            zmin=0,
+            zmax=zmax,
+            name="",
+            hovertemplate=(
+            "<b>Date:</b> %{customdata[0]}<br>"
+            "<b>Films watched:</b> %{z}"
+            "%{customdata[1]}<extra></extra>"
+            ),
+            customdata=np.stack((df['date'].astype(str), df['films_list']), axis=-1),
         )
         fig=self.create_month_lines(
             cplt=[fig],
-            month_lines_color= self.PALETTE['bleu'],
+            month_lines_color= PALETTE['bleu'],
             month_lines_width=3,
             data=df['date'],
             weekdays_in_year=weekdays,

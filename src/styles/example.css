@@ -1,0 +1,10 @@
+[data-testid="stBaseButton-secondary"]:hover {
+    border-color: #FF8C00;
+    color: #FF8C00;
+}
+
+[data-testid="stBaseButton-secondary"]:active {
+    border-color: #FF8C00;
+    background-color: rgba(255, 140, 0, 0.1);
+    color: #FF8C00;
+}

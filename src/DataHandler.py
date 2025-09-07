@@ -6,6 +6,7 @@ from datetime import datetime
 import pycountry
 from stop_words import get_stop_words
 import os
+import json
 
 # modules internes
 import src.ApiHandler as api_handler
@@ -138,14 +139,21 @@ class DataHandler:
                     self.reviews, self.comments, 
                     self.api_handler.get_data_from_sheet("profiles_stats")
                 )
+
                 if(st.secrets['prod']==True):
                     self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], self.radar_stats)
+
+                self.radar_means = self.api_handler.get_all_means()
 
             except zipfile.BadZipFile:
                 st.session_state["uploader_key"] += 1
                 st.warning('This is not a zipfile', icon="⚠️")
                 st.session_state["exemple"] = 0
                 st.rerun()
+            except FileNotFoundError as e:
+                 st.session_state["exemple"] = 0
+                 st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
+                 st.stop()
             except Exception as e:
                 st.error(f"An error occurred: {e}", icon="⚠️")
 
@@ -554,18 +562,60 @@ class DataHandler:
             return self.graph_maker.graph_generate_wordcloud(text,stopwords)
 
     def radar_graph(self):
-        fig = self.graph_maker.graph_radar(self.radar_stats)
+
+        scores_names = ['Consommateur', 'Explorateur', 'Consensuel', 'Éclectique', 'Actif']
+        scores_names_display = ['Consumer', 'Explorer', 'Consensus', 'Eclectic', 'Active']
+        scores_values = [self.radar_stats[score] for score in scores_names]
+        scores_means = [self.radar_means[score] for score in scores_names]
+
+        # pour la logique d'affichage, on inverse le score de consensus
+        scores_values[2] = 100 - scores_values[2]
+
+        markers = {
+            'Consommateur': self.radar_stats["nb_films_vus"],
+            'Explorateur': round(self.radar_stats["ratio_peu_vus"]*100, 2),
+            'Consensuel': self.radar_stats["moyenne_diff_rating"],
+            'Éclectique': next(iter(json.loads(self.radar_stats["ratio_par_genre"]).keys())),
+            'Actif': self.radar_stats["nb_interactions"]
+        }
+
+        scores_templates = {
+            'Consommateur': 'CONSUMER<br>You have watched %{r} films<br>The average cinephile has seen %{customdata} films',
+            'Explorateur': 'EXPLORER<br>You have watched %{r}% of less seen films<br>The average cinephile watches %{customdata}% of less seen films',
+            'Consensuel': 'CONSENSUS<br>Your rating difference is %{r} compared to the average<br>Your peers differ by %{customdata} from the mean',
+            'Éclectique': 'ECLECTIC<br>Your top genre is %{r}<br>The crowd\'s favorite is %{customdata}',
+            'Actif': 'ACTIVE<br>You have logged %{r} interactions<br>On average, users record %{customdata} interactions'
+        }
+
+        hover_texts = []
+        for i, score in enumerate(scores_names):
+            # Remplacer les placeholders avec les valeurs réelles
+            text = scores_templates[score]\
+                .replace("%{r}", str(markers[score]))\
+                .replace("%{customdata}", str(scores_means[i]))
+            hover_texts.append(text)
+
+
+        fig = self.graph_maker.graph_radar(scores_values, scores_names_display, hover_texts)
         return fig
 
-    def waffle(self,year):
-        df=self.watched_mg.copy()
-        df_count = df.groupby('Date').size().reset_index(name='count')
-        debut,fin=get_year_bounds(year)
-        debut=pd.to_datetime(debut)
-        fin=pd.to_datetime(fin)
-        df_count['Date']=pd.to_datetime(df_count['Date'])
-        df_year=df_count[df_count['Date'].between(debut,fin)]
-        df_year.columns=['date','count']
+    def waffle(self, year):
+        df = self.watched_mg.copy()
+        # Grouper par Date et agréger les titres des films regardés ce jour-là
+        df_count = (
+            df.groupby('Date')
+            .agg(
+                count=('Title', 'size'),
+                films_list=('Title', lambda x: ', '.join(x))
+            )
+            .reset_index()
+        )
+        debut, fin = get_year_bounds(year)
+        debut = pd.to_datetime(debut)
+        fin = pd.to_datetime(fin)
+        df_count['Date'] = pd.to_datetime(df_count['Date'])
+        df_year = df_count[df_count['Date'].between(debut, fin)]
+        df_year.columns = ['date', 'count', 'films_list']
 
         all_dates = pd.date_range(start=debut, end=fin, freq='D').normalize()
 

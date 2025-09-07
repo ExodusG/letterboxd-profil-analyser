@@ -10,17 +10,29 @@ from src.utils import *
 from src.radar_graph import *
 import src.DataHandler as data_handler
 import streamlit_antd_components as sac
-from src.constants import WATCHED, WATCHLIST
+from src.constants import WATCHED, WATCHLIST, PALETTE
+
 # imports CSS
+
 with open('src/styles/main_interface.css') as f:
     css = f.read()
 with open('src/styles/general_metrics.css') as f:
     css += f.read()
 with open('src/styles/graph.css') as f:
     css += f.read()
+with open('src/styles/background.css') as f:
+    css += f.read()
+with open('src/styles/example.css') as f:
+    css += f.read()
 st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
-### 
+# imports html
+with open("src/html/bottom_bar.html") as f:
+    bottom_bar = f.read()
+with open("src/html/main_title_and_instructions.html") as f:
+    main_title_and_instructions = f.read()
+
+###
 
 data_handler = data_handler.DataHandler()
 
@@ -33,23 +45,7 @@ st.set_page_config(
     }
 )
 
-st.markdown("""
-# **Letterboxd Stats Analyzer**
-
-🎬 Welcome to our Letterboxd Profile Analyzer. With just a few clicks, you'll discover your movie habits and get interesting insights about your film preferences, all your [letterboxd](https://letterboxd.com/) statistics !  
-
-🚀 This is just the first version of the project — many improvements are planned, including more Letterboxd stats and a feature to compare two profiles!
-
----
-
-## 📥 How to get started:
-
-1. **Log into** your Letterboxd account (on pc)
-2. Go to **Settings → Data → [Export Your Data](https://letterboxd.com/settings/data/)**
-3. **Download** the data file
-4. **Upload** the zipfile below and enjoy your personalized analysis!
-
-""")
+st.markdown(main_title_and_instructions, unsafe_allow_html=True)
 
 if "setup_done" not in st.session_state: # ça évite le spinner à l'upload
     # spinner est utilisé pour afficher un message pendant le chargement des données
@@ -86,58 +82,71 @@ def upload():
 
 @st.fragment
 def calendar():
-    col1,col3 = st.columns([3,1], vertical_alignment="center")
-    list_year=data_handler.get_years()
+    list_year = data_handler.get_years()
     list_year.remove("Alltime")
-    with col3:
-        year=sac.segmented(
-        items = [sac.SegmentedItem(label=str(year)) for year in list_year]
-        , label='Select a year', align='center', direction='vertical',color='orange'  
-        )
+
+    col1, col2, col3, col4 = st.columns([3,1,1,10], vertical_alignment="center")
+
     with col1:
-        fig=data_handler.waffle(int(year))
-        st.plotly_chart(fig,)
+        st.markdown("""
+        <div style='text-align: justify; font-size: 1.1em;'>
+        This calendar visualizes your film-watching activity for the selected year. Each square represents a day, with the color intensity indicating the number of films you watched on that day.
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        year = sac.segmented(
+        items = [sac.SegmentedItem(label=str(year)) for year in list_year], 
+        align='center', direction='vertical', color="#FF8C00",
+        divider = False, size='lg', radius=8, use_container_width=False, key="calendar_year"  
+        )
+
+    with col4:
+        fig = data_handler.waffle(int(year))
+        st.plotly_chart(fig)
+    
+    st.html("<div class='spacer', style='margin-bottom: 5%;'></div>")
+    
 
 def general_info():
     data_handler.set_year("Alltime")
 
     st.markdown("""<div class="header", style="margin-top: 5%;"></div>""", unsafe_allow_html=True)
     st.header("LET'S GET :blue[STARTED] - Quick facts", divider="gray", anchor=False)
-    help_data="""
+
+    st.info("""
     For better visualization, we decided to establish certain criteria to exclude specific data :
     - We do not include TV series or episodes
     - We do not include movies shorter than 5 minutes
     - We do not include movies under 20 minutes with fewer than 1,000 IMDb votes
-    """
-    st.markdown("""
-    <div style='text-align: left; margin-bottom: 3%; font-size: 1.1em;'>
-    This first section shows some general metrics in three different ways:
-    <ul>
-        <li><strong>General metrics</strong>: A quick overview of your Letterboxd profile.</li>
-        <li><strong>Radar chart</strong>: A visual representation of your film preferences, activity, uniqueness...</li>
-        <li><strong>Waffle plot</strong>: A unique way to visualize your watched films day to day</li>
-    </ul>
-         
-    Have fun exploring your statistics!
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown("""<strong> Information about data processing</strong>""",unsafe_allow_html=True,help=help_data)
+    """, icon="ℹ️")
 
-    col1, col2 = st.columns(2, vertical_alignment="center")
+    div = data_handler.general_metrics_div()
+    st.html(div)
+    st.html("<div class='spacer', style='margin-bottom: 5%;'></div>")
+
+    st.subheader("Your :blue[cinematic personality]", divider=False, anchor=False)
+    col1, col2 = st.columns([1,1], vertical_alignment="center")
     with col1:
-        st.subheader("You have :blue[watched]...", divider=False, anchor=False)
-        div,div2 = data_handler.general_metrics_div()
-        st.html(div)
-        st.subheader("You :blue[watchlist] contains...", divider=False, anchor=False)
-        st.html(div2)
-    with col2:
         st.markdown("""
-        <div style='text-align: center; font-size: 3em;'>
-        RADAR plot coming soon...
+        <div style='text-align: justify; font-size: 1.1em;'>
+        BAM! Your cinematic soul, mapped in technicolor! This radar chart shows your film-watching personality across five dimensions. Each score is amped up on a 0-100 scale, so let's break down your profile:
+        <ul>
+            <li><strong>Consensus</strong>: Measures how much your ratings align with the average Letterboxd user.</li>
+            <li><strong>Explorer</strong>: Shows your willingness to watch small indie films and lesser-known titles.</li>
+            <li><strong>Consumer</strong>: Assesses your overall engagement with films, i.e. the number of films watched.</li>
+            <li><strong>Active</strong>: Reflects your activity level on the platform, such as reviews and ratings.</li>
+            <li><strong>Eclectic</strong>: Measures your willingness to explore different genres and styles compared to the average user.</li>
+        </ul>
         </div>
         """, unsafe_allow_html=True)
-    
-    st.subheader("Your :blue[diary]", divider=False, anchor=False,help="Almost all the charts display elements when you hover your mouse over them!")
+        st.info("Note: Hover over the dots for detailed insights!", icon="ℹ️")
+    with col2:
+        fig = data_handler.radar_graph()
+        st.plotly_chart(fig)
+    st.html("<div class='spacer', style='margin-bottom: 5%;'></div>")
+
+    st.subheader("Your :blue[diary]", divider=False, anchor=False, help="Almost all the charts display elements when you hover your mouse over them!")
     calendar()
 
 @st.fragment
@@ -304,13 +313,6 @@ def main_interface():
 
         case "Rating":
             
-            #st.header("Some stats on your ratings", divider='blue')
-            #sur_note, sous_note = data_handler.diff_rating()
-
-            # st.write('The movies you rated most compared to IMDB')
-            # st.write(sur_note)
-            # st.write('The movies you most underrated compared to IMDB')
-            # st.write(sous_note)
             if data_handler.rating_empty():
                 st.warning("You have no movie in your ratings, please add some to see more data",icon="⚠️")
             else:
@@ -345,34 +347,32 @@ def main_interface():
 
 #
 
-
+# TODO: intégrer le bouton d'upload dans le file_uploader (impossible mais à creuser)
 def exemple():
 
-    col_left, col_right = st.columns([1,3], vertical_alignment="center")
-    with col_left:
-        st.markdown("""
-            <div style='text-align: justify; color: #e8e8e8;'>
-            📂 <b>Tip</b> - Don't have a zip file yet? You can try the example data!<br>Click the button to load it:
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    with col_right:
-        btn = st.button("Load example", key="example_btn")
+    col1, col2 = st.columns([9,1], gap="small", vertical_alignment="top")
+    if st.session_state.get("exemple") != 1: #on affiche pas le bouton exemple si on a upload une archive
+        with col2:
+            btn = st.button(
+                "📂 Try example data",
+                key="example_btn", 
+                type="secondary",
+                use_container_width=False
+            )
 
-    if btn:
-        if st.session_state.get("exemple") == 1: #on a upload une archive avant / on rerunr tout pour tout clean
-            st.session_state["exemple"] = 2 #permet de dire qu'on veut afficher l'exemple
-            st.session_state["uploader_key"] += 1 # clean le zip
-            st.rerun()
-        data_handler.setup_user_upload("", None,"./exemple/")
-        general_info()
-        main_interface()
-    if st.session_state.get("exemple") == 2: # l'app vient de rerun depuis le bouton exemple
-        data_handler.setup_user_upload("", None,"./exemple/")
-        general_info()
-        main_interface()
-        st.session_state["exemple"] = 0 # on remet l'état initial
+        if btn:
+            if st.session_state.get("exemple") == 1: #on a upload une archive avant / on rerunr tout pour tout clean
+                st.session_state["exemple"] = 2 #permet de dire qu'on veut afficher l'exemple
+                st.session_state["uploader_key"] += 1 # clean le zip
+                st.rerun()
+            data_handler.setup_user_upload("", None,"./exemple/")
+            general_info()
+            main_interface()
+        if st.session_state.get("exemple") == 2: # l'app vient de rerun depuis le bouton exemple
+            data_handler.setup_user_upload("", None,"./exemple/")
+            general_info()
+            main_interface()
+            st.session_state["exemple"] = 0 # on remet l'état initial
 
 
 @st.fragment
@@ -402,12 +402,4 @@ data_handler.temp_dir.cleanup()  # Nettoyage du dossier temporaire
 st.markdown("---")
 
 #st.sidebar.title("About")
-st.info(
-    """
-    Follow me on Letteboxd : [exodus_](https://letterboxd.com/exodus_/)
-
-    This app is maintained by [Exodus](https://exodusg.github.io/) and [Montro](https://github.com/Montr0-0).
-    
-    Any feedback or report a bug : [send a email with your zipfile](mailto:lelan.quentin56@gmail.com) 
-"""
-)
+st.html(bottom_bar)
