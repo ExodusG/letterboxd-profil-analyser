@@ -155,6 +155,7 @@ class DataHandler:
                  st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
                  st.stop()
             except Exception as e:
+                print(e)
                 st.error(f"An error occurred: {e}", icon="⚠️")
 
     def safe_read_csv(self, file_path,file_name):
