@@ -45,6 +45,7 @@ def clean_imdbr(df):
 def clean_runtime(df):
     df['Runtime']=df['Runtime'].str.split(' ').str[0]
     df = df[df['Runtime'].notna() & ~df['Runtime'].str.contains('s', case=False, na=True)] #remove the runtime in seconde
+    df['Runtime'] = df['Runtime'].str.replace(',', '', regex=False)
     df['Runtime'] = df['Runtime'].apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
     df = df.dropna(subset=['Runtime'])
     df['Runtime'] = df['Runtime'].astype(int)
