@@ -343,7 +343,9 @@ def main_interface():
             fig = data_handler.generate_wordcloud()
             if fig is not None:
                 st.subheader("A wordcloud with all your :blue[reviews]", divider=False, anchor=False)
-                st.pyplot(fig)
+                #col1, col2, col3 = st.columns([1, 2, 1])
+                #with col2:
+                st.pyplot(fig,width="content")
 
 #
 

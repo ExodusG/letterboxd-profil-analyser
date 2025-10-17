@@ -524,7 +524,7 @@ class GraphMaker:
         return fig
 
     def random_color_func(self,word, font_size, position, orientation, random_state=None, **kwargs):
-        return random.choice(self.colors)
+        return random.choice([PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']])
 
     def graph_generate_wordcloud(self, text, stopword):
         wordcloud = WordCloud(stopwords=stopword,width=800, height=400, background_color="#0e1117",max_words=120,color_func=self.random_color_func)
