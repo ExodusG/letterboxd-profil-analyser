@@ -161,6 +161,7 @@ def main_interface():
     """, unsafe_allow_html=True)
 
     years = data_handler.get_years()
+
     col1, col2 = st.columns([2, 3], gap="large")
     with col1:
         cat = sac.segmented(
@@ -187,7 +188,8 @@ def main_interface():
 
     st.markdown('<div class="tip-block">🎬 <b>Tip:</b> Use the buttons to switch category or year. All stats update instantly!</div>', unsafe_allow_html=True)
     data_handler.set_year(year)
-
+    if year=='2025':
+           prepare_wrapped()
     match cat:
         case "Watched":
             st.subheader(":blue[Genre] distribution of your watched films", divider=False, anchor=False)
@@ -397,6 +399,16 @@ def app():
     upload()
     exemple()
 
+@st.fragment
+def prepare_wrapped():
+    if st.button("Prepare your 2025 wrapped 🎬", type="primary"):
+        st.download_button(
+        label="Download your 2025 wrapped",
+        data=data_handler.get_wrapped(),
+        file_name="wrapped_2025.png",
+        mime="image/png",
+        icon=":material/download:",
+    )
 app()
 
 data_handler.temp_dir.cleanup()  # Nettoyage du dossier temporaire

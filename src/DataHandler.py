@@ -9,6 +9,7 @@ import os
 import json
 
 # modules internes
+import src.WrappedGenerator as wrapped_generator
 import src.ApiHandler as api_handler
 import src.GraphMaker as graph_maker
 from src.utils import *
@@ -21,6 +22,7 @@ class DataHandler:
         self.api_handler    = api_handler.ApiHandler()
         self.graph_maker    = graph_maker.GraphMaker()
         self.temp_dir       = tempfile.TemporaryDirectory()
+        self.wrapped_generator = wrapped_generator.WrappedGenerator(self)
         self.temp_name      = self.temp_dir.name
 
 ### Initialisation des données
@@ -76,6 +78,9 @@ class DataHandler:
     
     def rating_empty(self):
         return self.rating.empty
+    
+    def get_watched_df(self):
+        return self.watched_df
 
     def setup_user_upload(self, uploaded_files, my_bar,exemple):
         """ Configure les données de l'utilisateur à partir du fichier zip téléchargé"""
@@ -635,4 +640,30 @@ class DataHandler:
         )
         return self.graph_maker.waffle(df_year_mg, month_pos, weekdays, weeknumber)
 
+    ### wrapped generator
+     
+    def mostCommonGenre(self):
+        df_copy = self.watched_df.copy()
+        df_copy['Genre'] = df_copy['Genre'].str.split(', ')
+        df_genres_exploded = df_copy.explode('Genre')
+        counts = df_genres_exploded['Genre'].value_counts()  # nombre d'occurences
+        most_common = counts.idxmax()
+        return most_common
+    
+    def get_top5_titles(self):
+        top5_titles = self.rating_df.nlargest(5, "Rating")["Name"].reset_index()
+        top5_titles=top5_titles['Name']
+        return top5_titles
+    
+    def get_top5_directors(self):
+        top5_directors = self.rating_df.groupby("Director")["Rating"].mean().nlargest(5).reset_index()
+        top5_directors = top5_directors['Director']
+        return top5_directors
+    
+    def get_url(self,name):
+        res = self.watched_df.loc[self.watched_df['Name'] == name, 'Poster']
+        return res.iloc[0] if not res.empty else None
+    
+    def get_wrapped(self):
+        return self.wrapped_generator.generate_wrapped()
 ###
