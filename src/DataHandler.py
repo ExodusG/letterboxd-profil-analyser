@@ -651,6 +651,7 @@ class DataHandler:
         return most_common
     
     def get_top5_titles(self):
+        self.rating_df['Rating'] = pd.to_numeric(self.rating_df['Rating'], errors='coerce')
         top5_titles = self.rating_df.nlargest(5, "Rating")["Name"].reset_index()
         top5_titles=top5_titles['Name']
         return top5_titles
