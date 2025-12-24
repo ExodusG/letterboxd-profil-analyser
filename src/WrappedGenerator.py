@@ -40,7 +40,7 @@ class WrappedGenerator:
 
         top5_titles=self.dataHandler.get_top5_titles()
         top5_directors=self.dataHandler.get_top5_directors()
-
+        response=None
         for title in top5_titles:
             url = self.dataHandler.get_url(title)
             if url is not None:
