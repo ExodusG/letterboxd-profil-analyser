@@ -194,7 +194,7 @@ def main_interface():
         case "Watched":
             st.subheader(":blue[Genre] distribution of your watched films", divider=False, anchor=False)
             fig = data_handler.genre(WATCHED)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
             watched_actor_col, watched_director_col = st.columns(2)
             with watched_actor_col:
@@ -257,7 +257,7 @@ def main_interface():
             else:
                 st.subheader(":blue[Genre] distribution of your watchlist films", divider=False, anchor=False)
                 fig = data_handler.genre(WATCHLIST)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
                 watchlist_actor_col, watchlist_director_col = st.columns(2)
                 with watchlist_actor_col:
@@ -361,7 +361,7 @@ def exemple():
                 "📂 Try example data",
                 key="example_btn", 
                 type="secondary",
-                use_container_width=False
+                width='content'
             )
 
         if btn:

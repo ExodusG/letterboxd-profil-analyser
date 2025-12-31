@@ -32,7 +32,7 @@ class ApiHandler:
     
     def get_worksheets(self):
         """ Récupère les feuilles de calcul nécessaires"""
-        self.spreadsheet    = self.gspread_client.open("all_movies_data")
+        self.spreadsheet    = self.gspread_client.open(st.secrets["sheet_name"])
         self.films_sheet    = self.spreadsheet.worksheet("all_movies_data")
         self.profiles_sheet = self.spreadsheet.worksheet("profiles_stats")
         self.error_sheet    = self.spreadsheet.worksheet("error")
