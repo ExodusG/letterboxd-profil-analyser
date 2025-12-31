@@ -5,6 +5,7 @@ import pandas as pd
 import requests
 import gspread
 import json
+import logging
 
 # modules internes
 from src.radar_graph import *
@@ -122,6 +123,8 @@ class ApiHandler:
         """ Change la clé API utilisée pour les requêtes OMDB"""
         self.api_key_index += 1
         if self.api_key_index >= len(self.api_key_array):
+            logging.basicConfig(level=logging.INFO)
+            logging.info("no more API keys")
             raise Exception("All API keys have been used up.")
 
     def get_movie_data_by_title(self, title, year):

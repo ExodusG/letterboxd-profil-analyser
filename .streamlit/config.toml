@@ -3,3 +3,6 @@ base ="dark"
 
 [server]
 enableStaticServing = true
+
+[logger]
+level = "info"

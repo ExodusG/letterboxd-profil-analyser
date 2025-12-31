@@ -4,6 +4,7 @@
 # modules externes
 import streamlit as st
 import streamlit_antd_components as sac
+import logging
 
 # modules internes
 from src.utils import *
@@ -402,6 +403,8 @@ def app():
 @st.fragment
 def prepare_wrapped():
     if st.button("Prepare your 2025 wrapped 🎬", type="primary"):
+        logging.basicConfig(level=logging.INFO)
+        logging.info("wrapped 2025")
         st.download_button(
         label="Download your 2025 wrapped",
         data=data_handler.get_wrapped(),
