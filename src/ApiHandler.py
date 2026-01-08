@@ -37,7 +37,8 @@ class ApiHandler:
         self.films_sheet    = self.spreadsheet.worksheet("all_movies_data")
         self.profiles_sheet = self.spreadsheet.worksheet("profiles_stats")
         self.error_sheet    = self.spreadsheet.worksheet("error")
-
+        self.film_not_dl    = self.spreadsheet.worksheet("movie_not_dl")
+        
     def get_data_from_sheet(self, sheet_str):
         """ Récupère les données d'une feuille de calcul"""
         sheet = self.spreadsheet.worksheet(sheet_str)

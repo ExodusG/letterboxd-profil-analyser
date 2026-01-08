@@ -7,6 +7,7 @@ import pycountry
 from stop_words import get_stop_words
 import os
 import json
+import logging
 
 # modules internes
 import src.WrappedGenerator as wrapped_generator
@@ -32,7 +33,7 @@ class DataHandler:
         self.films_data = self.api_handler.get_data_from_sheet("all_movies_data")
         self.profiles_data = self.api_handler.get_data_from_sheet("profiles_stats")
 
-    def get_films(self, all_movies, dfF, my_bar):
+    def get_films(self, all_movies, dfF, my_bar,movie_not_dl):
         """ Récupère les films manquants dans all_movies à partir de dfF"""
         
         df_errors   = []
@@ -41,18 +42,22 @@ class DataHandler:
         existing_movies = set(
             zip(all_movies['Title'].dropna().astype(str), all_movies['Year'].dropna())
         )
-
+        pairs = set(zip(movie_not_dl["Title"], movie_not_dl["Year"].astype(str)))
         for i, (_, row) in enumerate(dfF.iterrows()):
             title_year = (row['Name'], row['Year'])
             if title_year not in existing_movies:
                 try:
-                    films_data,status_code = self.api_handler.get_movie_data_by_title(row['Name'], row['Year'])
-                    if status_code ==503:
-                        return None
-                    if films_data.get('Error') is not None:
-                        df_errors.append([self.uploaded_files.name, films_data['Error'], *row.values])
+                    #on regarde si le film n'est pas dans la liste des films à ne pas télécharger
+                    if((row['Name'], row['Year']) in pairs):
+                        df_errors.append([self.uploaded_files.name, "Movie not dl", *row.values])
                     else:
-                        df_movies.append(films_data)
+                        films_data,status_code = self.api_handler.get_movie_data_by_title(row['Name'], row['Year'])
+                        if status_code ==503:
+                            return None
+                        if films_data.get('Error') is not None:
+                            df_errors.append([self.uploaded_files.name, films_data['Error'], *row.values])
+                        else:
+                            df_movies.append(films_data)
                 except Exception as e:
                     # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
                     df_errors.append([self.uploaded_files.name, str(e), *row.values])
@@ -119,7 +124,7 @@ class DataHandler:
                 
                 # Enrichissement des références
                 if exemple is None:
-                    movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar)
+                    movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar,self.api_handler.get_data_from_sheet("movie_not_dl"))
                     if movie_return is not None:
                         self.all_movies = movie_return
                     else:
@@ -160,7 +165,8 @@ class DataHandler:
                  st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
                  st.stop()
             except Exception as e:
-                print(e)
+                logging.basicConfig(level=logging.INFO)
+                logging.info(e)
                 st.error(f"An error occurred: {e}", icon="⚠️")
 
     def safe_read_csv(self, file_path,file_name):
