@@ -136,19 +136,18 @@ class GraphMaker:
 
         return fig
 
-    def graph_director(self, df):
+    def _create_bar_chart(self, df, x_axis, y_axis='Count'):
         colors = [PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]
-        color_seq = [colors[i % len(colors)] for i in range(25)]
+        color_seq = [colors[i % len(colors)] for i in range(len(df))]
 
         fig = px.bar(
             df,
-            x='Director',
-            y='Count',
-            text='Count',
-            color='Director',
+            x=x_axis,
+            y=y_axis,
+            text=y_axis,
+            color=x_axis,
             color_discrete_sequence=color_seq,
             custom_data='MoviesText',
-            #labels={'Director': 'Director', 'Number of Movies': 'Number of Movies'},
         )
 
         fig.update_traces(
@@ -178,54 +177,12 @@ class GraphMaker:
         )
 
         return fig
+
+    def graph_director(self, df):
+        return self._create_bar_chart(df, 'Director')
 
     def graph_actor(self, df):
-
-        #nb_actor = df.sort_values("Number of Movies", ascending=False).reset_index(drop=True)
-        colors = [PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]
-        color_seq = [colors[i % len(colors)] for i in range(25)]
-
-        fig = px.bar(
-            df,
-            x='Actor',
-            y='Count',
-            text='Count',
-            color='Actor',
-            color_discrete_sequence=color_seq,
-            custom_data='MoviesText',
-            #labels={'Actor': 'Actors', 'Number of Movies': 'Number of Movies'},
-        )
-
-        # fig.update_traces(
-        #     textposition='inside',
-        #     hovertemplate="<b>%{x}</b><br>%{y} films<extra></extra>"
-        # )
-        fig.update_traces(
-            textposition='inside',
-            hovertemplate='<b>%{x}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
-        )
-        fig.update_layout(
-            xaxis=dict(
-                tickangle=-35,
-                showgrid=False,
-                tickfont=dict(size=14),
-                title_font=dict(size=16),
-                fixedrange=True
-            ),
-            yaxis=dict(
-                title='Number of Movies',
-                showgrid=True,
-                tickmode='array',
-                tickfont=dict(size=14),
-                title_font=dict(size=16),
-                fixedrange=True
-            ),
-            bargap=0.17,
-            barcornerradius=8,
-            showlegend=False,
-        )
-
-        return fig
+        return self._create_bar_chart(df, 'Actor')
 
     def cinephile_graph(self, result):
 

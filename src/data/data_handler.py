@@ -10,20 +10,19 @@ import json
 import logging
 
 # modules internes
-import src.WrappedGenerator as wrapped_generator
-import src.ApiHandler as api_handler
-import src.GraphMaker as graph_maker
+from src.api import ApiHandler
+from src.render import GraphMaker, WrappedGenerator
 from src.utils import *
-from src.radar_graph import compute_radar_stats_for_sheet
+from src.data.radar_graph import compute_radar_stats_for_sheet
 from src.constants import WATCHLIST, WATCHED
 
 class DataHandler:
 
     def __init__(self):
-        self.api_handler    = api_handler.ApiHandler()
-        self.graph_maker    = graph_maker.GraphMaker()
+        self.api_handler    = ApiHandler()
+        self.graph_maker    = GraphMaker()
         self.temp_dir       = tempfile.TemporaryDirectory()
-        self.wrapped_generator = wrapped_generator.WrappedGenerator(self)
+        self.wrapped_generator = WrappedGenerator(self)
         self.temp_name      = self.temp_dir.name
 
 ### Initialisation des données

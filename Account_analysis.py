@@ -7,35 +7,41 @@ import streamlit_antd_components as sac
 import logging
 
 # modules internes
-from src.utils import *
-from src.radar_graph import *
-import src.DataHandler as data_handler
-import streamlit_antd_components as sac
+from src.data import DataHandler
 from src.constants import WATCHED, WATCHLIST, PALETTE
 
-# imports CSS
+# load css and html files
+def load_assets():
+    # css
+    css_files = [
+        'src/styles/main_interface.css',
+        'src/styles/general_metrics.css',
+        'src/styles/graph.css',
+        'src/styles/background.css',
+        'src/styles/example.css'
+    ]
+    css = ""
+    for file in css_files:
+        with open(file) as f:
+            css += f.read()
+    
+    # html
+    html_files = {
+        "bottom_bar": "src/html/bottom_bar.html",
+        "main_title_and_instructions": "src/html/main_title_and_instructions.html"
+    }
+    html_content = {}
+    for key, file in html_files.items():
+        with open(file) as f:
+            html_content[key] = f.read()
 
-with open('src/styles/main_interface.css') as f:
-    css = f.read()
-with open('src/styles/general_metrics.css') as f:
-    css += f.read()
-with open('src/styles/graph.css') as f:
-    css += f.read()
-with open('src/styles/background.css') as f:
-    css += f.read()
-with open('src/styles/example.css') as f:
-    css += f.read()
+    return css, html_content
+
+css, html_content = load_assets()
 st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
-# imports html
-with open("src/html/bottom_bar.html") as f:
-    bottom_bar = f.read()
-with open("src/html/main_title_and_instructions.html") as f:
-    main_title_and_instructions = f.read()
-
 ###
-
-data_handler = data_handler.DataHandler()
+data_handler = DataHandler()
 
 st.set_page_config(
     page_title="Letterboxd analysis",
@@ -46,7 +52,7 @@ st.set_page_config(
     }
 )
 
-st.markdown(main_title_and_instructions, unsafe_allow_html=True)
+st.markdown(html_content["main_title_and_instructions"], unsafe_allow_html=True)
 
 if "setup_done" not in st.session_state: # ça évite le spinner à l'upload
     # spinner est utilisé pour afficher un message pendant le chargement des données
@@ -361,8 +367,7 @@ def exemple():
             btn = st.button(
                 "📂 Try example data",
                 key="example_btn", 
-                type="secondary",
-                width='content'
+                type="secondary"
             )
 
         if btn:
@@ -389,8 +394,8 @@ def event_map(fig,key):
                 """, unsafe_allow_html=True,help="The country is determined by the production country of the film")
     #permet de gérer l'événement de sélection sur la carte
     event_dict=st.plotly_chart(fig, key=key,on_select="rerun")
-    if len(event_dict.selection.points) >0 :
-        div = data_handler.mapW_div(event_dict.selection.points[0]['location'],key)
+    if event_dict["selection"] and len(event_dict["selection"]["points"]) > 0:
+        div = data_handler.mapW_div(event_dict["selection"]["points"][0]['location'],key)
         st.html(div)
 
 
@@ -419,4 +424,4 @@ data_handler.temp_dir.cleanup()  # Nettoyage du dossier temporaire
 st.markdown("---")
 
 #st.sidebar.title("About")
-st.html(bottom_bar)
+st.markdown(html_content["bottom_bar"], unsafe_allow_html=True)
