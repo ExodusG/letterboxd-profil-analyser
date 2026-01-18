@@ -33,7 +33,7 @@ class DataHandler:
         self.profiles_data = self.api_handler.get_data_from_sheet("profiles_stats")
         self.movie_not_dl_data = self.api_handler.get_data_from_sheet("movie_not_dl")
 
-    def get_films(self, all_movies, dfF, my_bar, movie_not_dl):
+    def get_films(self, all_movies, dfF, my_bar):
         """ Récupère les films manquants dans all_movies à partir de dfF"""
         
         df_errors   = []
@@ -61,11 +61,7 @@ class DataHandler:
                 except Exception as e:
                     # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
                     df_errors.append([self.uploaded_files.name, str(e), *row.values])
-            my_bar.progress(int(100 * (i+1) / total_movies), text="""
-            Your data is being processed, this may take a few seconds...
-            This is a free project maintained by volunteers, there might be occasional delays and errors.                 
-            Follow us on Letterboxd : [exodus_](https://letterboxd.com/exodus_/) and [Montr0](https://letterboxd.com/Montr0/)
-            """)
+            my_bar.progress(int(100 * (i+1) / total_movies), text=f"Processing movie {i+1} of {total_movies}...")
 
         if df_errors:
             df_errors_df = pd.DataFrame(df_errors, columns=['File', 'Error', *dfF.columns])
@@ -87,94 +83,95 @@ class DataHandler:
     
     def get_watched_df(self):
         return self.watched_df
+    
 
-    def setup_user_upload(self, uploaded_files, my_bar,exemple):
+    def setup_user_upload(self, is_example, uploaded_files, my_bar):
         """ Configure les données de l'utilisateur à partir du fichier zip téléchargé"""
-        if uploaded_files is not None:
-            try:
-                if exemple is None:
-                    self.uploaded_files = uploaded_files
-                    tmp_name=self.temp_name
-                    with zipfile.ZipFile(uploaded_files, 'r') as zip_ref:
-                        zip_ref.extractall(tmp_name)
+        try:
+
+            tmp_name = "./example/" if is_example else self.temp_name
+
+            # Extraire les fichiers si ce n'est pas un exemple
+            if not is_example and uploaded_files is not None:
+                self.uploaded_files = uploaded_files
+                with zipfile.ZipFile(uploaded_files, 'r') as zip_ref:
+                    zip_ref.extractall(tmp_name)
+        
+            csv_files = ['watchlist', 'watched', 'ratings', 'reviews', 'profile', 'comments']
+            dataframes = {}
+            for csv_name in csv_files:
+                file_path = os.path.join(tmp_name, f'{csv_name}.csv')
+                dataframes[csv_name] = self.safe_read_csv(file_path,f'{csv_name}.csv')
+
+            self.watchlist  = dataframes['watchlist']
+            self.watched    = dataframes['watched']
+            self.rating     = dataframes['ratings']
+            self.reviews    = dataframes['reviews']
+            self.profile    = dataframes['profile']
+            self.comments   = dataframes['comments']
+
+            # Nettoyage des années
+            for attr in ['watchlist', 'watched', 'rating']:
+                setattr(self, attr, clean_year(getattr(self, attr)))
+
+            # Préparation des références
+            self.all_movies = pd.DataFrame(self.films_data)
+            self.all_movies = clean_year(self.all_movies)
+
+            self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
+            
+            # Enrichissement des références
+            if not is_example:
+                movie_return = self.get_films(self.all_movies, self.watched_and_watchlist, my_bar)
+                if movie_return is not None:
+                    self.all_movies = movie_return
                 else:
-                    tmp_name=exemple
-                # Lecture des fichiers CSV attendus
-                csv_files = ['watchlist', 'watched', 'ratings', 'reviews', 'profile', 'comments']
-                dataframes = {}
-                for csv_name in csv_files:
-                    file_path = os.path.join(tmp_name, f'{csv_name}.csv')
-                    dataframes[csv_name] = self.safe_read_csv(file_path,f'{csv_name}.csv')
+                    erreur_api()
 
-                self.watchlist  = dataframes['watchlist']
-                self.watched    = dataframes['watched']
-                self.rating     = dataframes['ratings']
-                self.reviews    = dataframes['reviews']
-                self.profile    = dataframes['profile']
-                self.comments   = dataframes['comments']
+            self.all_movies = self.all_movies.drop_duplicates(subset=['Title', 'Year'])
+            self.all_movies = clean_small_films(self.all_movies)
+            self.all_movies = bind_categories(self.all_movies)
 
-                # Nettoyage des années
-                for attr in ['watchlist', 'watched', 'rating']:
-                    setattr(self, attr, clean_year(getattr(self, attr)))
+            # Fichiers spécfiques à l'utilisateur
+            # mg = merge = méga fichier avec tous les films et les données intéressantes
+            self.watched_mg     = pd.merge(self.watched, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+            self.watchlist_mg   = pd.merge(self.watchlist, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+            self.rating_mg      = pd.merge(self.rating, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
 
-                # Préparation des références
-                self.all_movies = pd.DataFrame(self.films_data)
-                self.all_movies = clean_year(self.all_movies)
+            self.rating_mg['Rating'] = self.rating_mg['Rating'] * 2
+            self.rating_mg = clean_imdbr(self.rating_mg)
+            self.rating_mg['diff_rating'] = self.rating_mg['Rating'] - self.rating_mg['imdbRating']
 
-                self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
-                
-                # Enrichissement des références
-                if exemple is None:
-                    movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar,self.movie_not_dl_data)
-                    if movie_return is not None:
-                        self.all_movies = movie_return
-                    else:
-                        erreur_api()
+            self.radar_stats = compute_radar_stats_for_sheet(
+                self.all_movies, self.watched_mg, self.rating_mg,
+                self.reviews, self.comments, self.profiles_data
+            )
 
-                self.all_movies = self.all_movies.drop_duplicates(subset=['Title', 'Year'])
-                self.all_movies = clean_small_films(self.all_movies)
-                self.all_movies = bind_categories(self.all_movies)
+            if(st.secrets['prod']==True):
+                self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], self.radar_stats)
 
-                # Fichiers spécfiques à l'utilisateur
-                # mg = merge = méga fichier avec tous les films et les données intéressantes
-                self.watched_mg     = pd.merge(self.watched, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
-                self.watchlist_mg   = pd.merge(self.watchlist, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
-                self.rating_mg      = pd.merge(self.rating, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+            self.radar_means = self.api_handler.get_all_means()
 
-                self.rating_mg['Rating'] = self.rating_mg['Rating'] * 2
-                self.rating_mg = clean_imdbr(self.rating_mg)
-                self.rating_mg['diff_rating'] = self.rating_mg['Rating'] - self.rating_mg['imdbRating']
-
-                self.radar_stats = compute_radar_stats_for_sheet(
-                    self.all_movies, self.watched_mg, self.rating_mg,
-                    self.reviews, self.comments, self.profiles_data
-                )
-
-                if(st.secrets['prod']==True):
-                    self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], self.radar_stats)
-
-                self.radar_means = self.api_handler.get_all_means()
-
-            except zipfile.BadZipFile:
-                st.session_state["uploader_key"] += 1
-                st.warning('This is not a zipfile', icon="⚠️")
-                st.session_state["exemple"] = 0
-                st.rerun()
-            except FileNotFoundError as e:
-                 st.session_state["exemple"] = 0
-                 st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
-                 st.stop()
-            except Exception as e:
-                logging.basicConfig(level=logging.INFO)
-                logging.info(e)
-                st.error(f"An error occurred: {e}", icon="⚠️")
+        except zipfile.BadZipFile:
+            st.session_state["uploader_key"] += 1
+            st.warning('This is not a zipfile', icon="⚠️")
+            st.session_state["example"] = 0
+            st.rerun()
+        except FileNotFoundError as e:
+                st.session_state["example"] = 0
+                st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
+                st.stop()
+        except Exception as e:
+            logging.basicConfig(level=logging.INFO)
+            logging.info(e)
+            st.error(f"An error occurred: {e}", icon="⚠️")
 
     def safe_read_csv(self, file_path,file_name):
         """ Lit un fichier CSV en gérant les erreurs"""
         try:
             return pd.read_csv(file_path)
         except FileNotFoundError:
-            st.session_state["exemple"] = 0
+            st.session_state["example"] = 0
             st.error(f"File {file_name} not found. We need all the csv files of the zipfile", icon="⚠️")
             st.stop()
             return pd.DataFrame()
@@ -194,6 +191,9 @@ class DataHandler:
         ]
 
         return self.graph_maker.general_metrics_div(metrics)
+
+    def get_current_year(self):
+        return self.year
 
     def get_years(self):
         """ Récupère les années de visionnage à partir de la date d'inscription du profil"""
