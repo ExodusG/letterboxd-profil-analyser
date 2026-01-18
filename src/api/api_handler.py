@@ -1,5 +1,7 @@
 # modules externes
+import re
 from google.oauth2 import service_account
+import sentry_sdk
 import streamlit as st
 import pandas as pd
 import requests
@@ -8,8 +10,7 @@ import json
 import logging
 
 # modules internes
-from src.data.radar_graph import *
-from src.utils import *
+from src.utils import sanitize, clean_year
 
 class ApiHandler:
     """ Classe pour gérer les interactions avec l'API Google Sheets
@@ -19,7 +20,19 @@ class ApiHandler:
         self.setup_gspread_connection()
         self.get_worksheets()
         self.setup_omdb_api()
-        setup_sentry()
+        self.setup_sentry()
+        self.http_session = requests.Session()
+
+    
+    # Configuration de Sentry pour la gestion des erreurs
+    def setup_sentry(self):
+        #st.page_link("pages/Compare.py", label="Compare", icon="1️⃣")
+        sentry_sdk.init(
+            # Add data like request headers and IP for users,
+            # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+            dsn = st.secrets["dns"],
+            send_default_pii = True,
+        )
 
     ### PARTIE GSPREAD ###
     
@@ -32,16 +45,24 @@ class ApiHandler:
         self.gspread_client = gspread.authorize(credentials)
     
     def get_worksheets(self):
-        """ Récupère les feuilles de calcul nécessaires"""
-        self.spreadsheet    = self.gspread_client.open(st.secrets["sheet_name"])
-        self.films_sheet    = self.spreadsheet.worksheet("all_movies_data")
-        self.profiles_sheet = self.spreadsheet.worksheet("profiles_stats")
-        self.error_sheet    = self.spreadsheet.worksheet("error")
-        self.film_not_dl    = self.spreadsheet.worksheet("movie_not_dl")
-        
-    def get_data_from_sheet(self, sheet_str):
-        """ Récupère les données d'une feuille de calcul"""
-        sheet = self.spreadsheet.worksheet(sheet_str)
+        """ Récupère les feuilles de calcul nécessaires et les stocke dans un dictionnaire."""
+        spreadsheet = self.gspread_client.open(st.secrets["sheet_name"])
+        self.worksheets = {
+            "all_movies_data": spreadsheet.worksheet("all_movies_data"),
+            "profiles_stats": spreadsheet.worksheet("profiles_stats"),
+            "error": spreadsheet.worksheet("error"),
+            "movie_not_dl": spreadsheet.worksheet("movie_not_dl")
+        }
+        self.films_sheet = self.worksheets["all_movies_data"]
+        self.profiles_sheet = self.worksheets["profiles_stats"]
+        self.error_sheet = self.worksheets["error"]
+        self.film_not_dl = self.worksheets["movie_not_dl"]
+
+    def get_data_from_sheet(self, sheet_name):
+        """ Récupère les données d'une feuille de calcul en utilisant les références stockées."""
+        if sheet_name not in self.worksheets:
+            raise ValueError(f"La feuille de calcul '{sheet_name}' n'est pas initialisée.")
+        sheet = self.worksheets[sheet_name]
         data = sheet.get_all_records()
         return pd.DataFrame(data)
     
@@ -58,9 +79,8 @@ class ApiHandler:
     def add_profiles_to_stats_sheet(self, profile, radar_stats):
         """ Ajoute ou met à jour les scores d'un profil dans la feuille de calcul des statistiques des profils"""
         profile_id = profile['Username']
-        existing_profiles = self.profiles_sheet.get_all_records()
-        id_to_index = {row['id']: i for i, row in enumerate(existing_profiles) if 'id' in row}
-
+        ids = self.profiles_sheet.col_values(1)
+        
         # Prépare la ligne à écrire
         row_data = [
             profile_id,
@@ -77,15 +97,12 @@ class ApiHandler:
             1
         ]
 
-        if profile_id in id_to_index:  # Si le profil existe, met à jour la ligne
-            row_index = id_to_index[profile_id] + 2  # +2 pour header et indexation 1-based
-            # Récupère la valeur actuelle de row[11] (compteur)
-            current_row = self.profiles_sheet.row_values(row_index)
-            current_count = int(current_row[11])
+        try:
+            row_index = ids.index(profile_id) + 2  # +2 pour header et indexation 1-based
+            current_count = int(self.profiles_sheet.cell(row_index, 12).value or 1) # row[11] (compteur)
             row_data[11] = current_count + 1
-            # Met à jour la ligne existante
             self.profiles_sheet.update(f'A{row_index}:L{row_index}', [row_data])
-        else:  # Sinon, ajoute une nouvelle ligne
+        except ValueError:  # Sinon, ajoute une nouvelle ligne
             self.profiles_sheet.append_row(row_data)
 
     def add_error_to_sheet(self, df_errors):
@@ -94,22 +111,34 @@ class ApiHandler:
             cleaned_rows = df_errors.astype(object).apply(lambda col: col.map(sanitize)).values.tolist()
             self.error_sheet.append_rows(cleaned_rows)
 
-    def get_all_means(self) :
+    def get_all_means(self, df_profiles_stats=None):
         # Récupère les données de la feuille "profiles_stats" au format DataFrame pandas
-        extraction = self.get_data_from_sheet("profiles_stats")
-        res = {}
-        res["Consommateur"] = round(extraction["nb_films_vus"].mean())
-        res["Explorateur"] = round(extraction["ratio_peu_vus"].mean(), 2)*100
-        res["Consensuel"] = round(extraction["moyenne_diff_rating"].mean(), 3)
+        if df_profiles_stats is None:
+            df_profiles_stats = self.get_data_from_sheet("profiles_stats")
+        
+        if df_profiles_stats.empty:
+            return {
+                "Consommateur": 0,
+                "Explorateur": 0,
+                "Consensuel": 0,
+                "Éclectique": "",
+                "Actif": 0
+            }
+    
+        res = {
+            "Consommateur": round(df_profiles_stats["nb_films_vus"].mean()),
+            "Explorateur": round(df_profiles_stats["ratio_peu_vus"].mean(), 2)*100,
+            "Consensuel": round(df_profiles_stats["moyenne_diff_rating"].mean(), 3),
+            "Éclectique": "",
+            "Actif": round(df_profiles_stats["nb_interactions"].mean())
+        }
 
         # Pour la colonne "ratio_par_genre", on récupère le JSON de la première ligne
-        ratio_str = extraction["ratio_par_genre"].iloc[0]
+        ratio_str = df_profiles_stats["ratio_par_genre"].iloc[0]
         ratio_dict = json.loads(ratio_str)
         # Extraire uniquement le nom du premier genre (première clé) apparaissant dans le JSON
         res["Éclectique"] = next(iter(ratio_dict.keys()))
-
-        res["Actif"] = round(extraction["nb_interactions"].mean())
-
+    
         return res
 
     ### PARTIE OMDB API ###
@@ -131,14 +160,20 @@ class ApiHandler:
     def get_movie_data_by_title(self, title, year):
         """ Récupère les données d'un film par son titre et son année via l'API OMDB.
         Elle est utilisée quand le film n'est pas dans la feuille de calcul. Peut changer la clé API si la limite de requêtes est atteinte."""
-        requestReponse = requests.get(self.base_url, params={'apikey': self.api_key_array[self.api_key_index], 't': title, 'y': year})
+        params={'apikey': self.api_key_array[self.api_key_index], 't': title, 'y': year}
+        requestReponse = self.http_session.get(self.base_url, params=params, timeout=10)
         response = requestReponse.json()
         status_code = requestReponse.status_code
+
         if response.get('Error') is not None:
             # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
             # print(response.get('Error'))
             if response['Error'] == "Request limit reached!":
                 self.switch_api_key()
                 response,status_code = self.get_movie_data_by_title(title, year)
-        return response,status_code
+
+        return response, status_code
+
+
+
 

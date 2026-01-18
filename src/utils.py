@@ -1,21 +1,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import sentry_sdk
 import string
 import math
 from datetime import date
 from typing import Any, List, Tuple
-
-# Configuration de Sentry pour la gestion des erreurs
-def setup_sentry():
-    #st.page_link("pages/Compare.py", label="Compare", icon="1️⃣")
-    sentry_sdk.init(
-        # Add data like request headers and IP for users,
-        # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
-        dsn = st.secrets["dns"],
-        send_default_pii = True,
-    )
 
 ## DATASET CLEANING FUNCTIONS ##
 
@@ -31,13 +20,13 @@ def clean_year(df):
     return df
 
 def clean_imdbv(df):
-    df['imdbVotes'] = df['imdbVotes'].replace("N/A", np.nan)
+    df['imdbVotes'] = df['imdbVotes'].replace("N/A", np.nan).infer_objects(copy=False)
     df = df.dropna(subset=['imdbVotes'])
     df['imdbVotes'] = df['imdbVotes'].str.replace(',', '').astype(float)
     return df
 
 def clean_imdbr(df):
-    df['imdbRating'] = df['imdbRating'].replace("N/A", np.nan)
+    df['imdbRating'] = df['imdbRating'].replace("N/A", np.nan).infer_objects(copy=False)
     df = df.dropna(subset=['imdbRating'])
     df['imdbRating'] = df['imdbRating'].apply(lambda x: float(x) if x != '' else None)
     return df
@@ -74,7 +63,7 @@ def clean_reviews(df):
 def clean_votes(df):
     """Nettoie la colonne 'imdbVotes' d'un DataFrame et la convertit en float."""
     votes = df.copy()
-    votes['imdbVotes'] = votes['imdbVotes'].replace(["N/A", ""], np.nan)
+    votes['imdbVotes'] = votes['imdbVotes'].replace(["N/A", ""], np.nan).infer_objects(copy=False)
     votes = votes.dropna(subset=['imdbVotes'])
     votes['imdbVotes'] = votes['imdbVotes'].astype(str).str.replace(',', '')
     votes['imdbVotes'] = votes['imdbVotes'].apply(lambda x: float(x) if x not in ['', 'N/A', None] else np.nan)
@@ -101,7 +90,7 @@ def extract_year(df, year):
     return df_year
 
 def computeRuntime(df):
-    df['Runtime']=df['Runtime'].replace('nan', np.nan)
+    df['Runtime']=df['Runtime'].replace('nan', np.nan).infer_objects(copy=False)
     df = df.dropna(subset=['Runtime'])
     df['Runtime'] = df['Runtime'].astype(str).str.replace(r'[Ss]', '5', regex=True)
 
@@ -190,4 +179,21 @@ def get_date_coordinates(data: pd.DataFrame, x: str) -> Tuple[Any, List[float], 
     weeknumber_of_dates = data[x].dt.strftime("%W").astype(int).tolist()
 
     return month_positions, weekdays_in_year, weeknumber_of_dates
+
+def smart_percentile(marker, all_markers):
+    all_markers = list(all_markers)
+    if marker in all_markers:
+        all_markers.remove(marker)
+    if not all_markers:
+        return 50
+    count = np.sum(np.array(all_markers) <= marker)
+    percentile = count / len(all_markers)
+    score = int(round(percentile * 100))
+
+    if score == 0:
+        score = 1
+    elif score == 100:
+        score = 99
+
+    return score
 

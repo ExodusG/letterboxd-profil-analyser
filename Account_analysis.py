@@ -8,9 +8,10 @@ import logging
 
 # modules internes
 from src.data import DataHandler
-from src.constants import WATCHED, WATCHLIST, PALETTE
+from src.constants import WATCHED, WATCHLIST
 
 # load css and html files
+@st.cache_resource
 def load_assets():
     # css
     css_files = [
@@ -48,7 +49,8 @@ st.set_page_config(
     page_icon="🎥",
     layout="wide",
     menu_items={
-        'Report a bug': "mailto:lelan.quentin56@gmail.com",
+        'Report a bug': "mailto:movieboxdanalysis@gmail.com",
+        'About': "We are not affiliated with Letterboxd. This is a personal project to analyze your Letterboxd data."
     }
 )
 
@@ -56,7 +58,7 @@ st.markdown(html_content["main_title_and_instructions"], unsafe_allow_html=True)
 
 if "setup_done" not in st.session_state: # ça évite le spinner à l'upload
     # spinner est utilisé pour afficher un message pendant le chargement des données
-    with st.spinner("Setting-up... (this will take a few seconds)", show_time=True):
+    with st.spinner("SETTING UP (this may take a few seconds)...", show_time=True):
         data_handler.setup_worksheets_data()
     st.session_state["setup_done"] = True
 else:
@@ -75,9 +77,13 @@ def upload():
     )
 
     if uploaded_files is not None: 
-        my_bar = st.progress(0, text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)")
+        my_bar = st.progress(0, text="""
+        Your data is being processed, this may take a few seconds...
+        This is a free project maintained by volunteers, there might be occasional delays and errors.                 
+        Follow us on Letterboxd : [exodus_](https://letterboxd.com/exodus_/) and [Montr0](https://letterboxd.com/Montr0/)
+        """)
         with my_bar:
-            data_handler.setup_user_upload(uploaded_files, my_bar,None) 
+            data_handler.setup_user_upload(uploaded_files, my_bar, None) 
         my_bar.empty()  # La barre disparaît après le chargement
     if uploaded_files is not None:
         st.session_state["exemple"] = 1

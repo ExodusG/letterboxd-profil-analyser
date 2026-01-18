@@ -1,22 +1,18 @@
-from src.utils import compute_categories
+# external modules
 import numpy as np
 import json
 
+# internal modules
+from src.utils import compute_categories, smart_percentile
 
+
+# main function to be called
 def compute_radar_stats_for_sheet(ref, watched_df, rating_df, reviews_df, comments_df, profiles_stats):
     scores = compute_scores(ref, watched_df, rating_df, reviews_df, comments_df, profiles_stats)
     markers = compute_markers(ref, watched_df, rating_df, reviews_df, comments_df)
     return {**scores, **markers}
 
-### PARTIE SCORE ###
-
-#   Consommateur   : Mesure le visionnage de films en général, sans distinction de popularité.
-#   Explorateur    : Mesure le visionnage de films peu populaires (hypothèse : peu populaires = peu notés).
-#   Consensuel     : Indique le niveau d'accord entre les préférences de l'utilisateur et celles de la communauté.
-#   Éclectique     : Reflète la variété des préférences de l'utilisateur à travers différentes catégories.
-#   Actif          : Représente le niveau d'activité et d'interaction de l'utilisateur sur la plateforme.
-
-# Calcul des scores pour chaque composante
+# groups functions that compute scores
 def compute_scores(ref, watched_df, rating_df, reviews_df, comments_df, profiles_stats):
     scores = {
         "Consommateur": 0,
@@ -25,15 +21,31 @@ def compute_scores(ref, watched_df, rating_df, reviews_df, comments_df, profiles
         "Éclectique": 0,
         "Actif": 0
     }
-
-    # Calcul des scores pour chaque composante
     scores["Consommateur"]  = compute_consommateur_score(watched_df, profiles_stats)
     scores["Explorateur"]   = compute_explorateur_score(ref, watched_df, profiles_stats)
     scores["Consensuel"]    = compute_consensuel_score(rating_df, profiles_stats)
     scores["Éclectique"]    = compute_eclectique_score(watched_df, profiles_stats)
     scores["Actif"]         = compute_actif_score(reviews_df, comments_df, profiles_stats)
-
     return scores
+
+# groups functions that compute markers
+def compute_markers(ref, watched_df, rating_df, reviews_df, comments_df):
+    markers = {
+        "nb_films_vus": 0,
+        "ratio_peu_vus": 0,
+        "moyenne_diff_rating": 0,
+        "ratio_par_genre": {},
+        "nb_interactions": 0
+    }
+    markers["nb_films_vus"]         = compute_consommateur_marker(watched_df)
+    markers["ratio_peu_vus"]        = compute_explorateur_marker(ref, watched_df)
+    markers["moyenne_diff_rating"]  = compute_consensuel_marker(rating_df)
+    markers["ratio_par_genre"]      = compute_eclectique_marker(watched_df)
+    markers["nb_interactions"]      = compute_actif_marker(reviews_df, comments_df)
+    return markers
+
+
+# SCORES COMPUTATION FUNCTIONS #
 
 def compute_consommateur_score(watched_df, profiles_stats):
     marker = compute_consommateur_marker(watched_df)
@@ -89,34 +101,8 @@ def compute_actif_score(reviews_df, comments_df, profiles_stats):
     actif = smart_percentile(marker, all_marker)
     return actif
 
-###
 
-### PARTIE INDICATEURS ###
-
-#   Consommateur   : nombre de films vus 
-#   Explorateur    : rapport entre le nombre de films peu vus (Obscure + Lesser-known) et le nombre total de films vus
-#   Consensuel     : moyenne des diffRating
-#   Éclectique     : pour chaque genre, le nombre de films vus dans ce genre divisé par le nombre total de films vus
-#   Actif          : nombre de commentaires laissés + nombre de reviews laissés
-
-# Calcul des scores pour chaque composante
-def compute_markers(ref, watched_df, rating_df, reviews_df, comments_df):
-    markers = {
-        "nb_films_vus": 0,
-        "ratio_peu_vus": 0,
-        "moyenne_diff_rating": 0,
-        "ratio_par_genre": {},
-        "nb_interactions": 0
-    }
-
-    # Calcul des scores pour chaque composante
-    markers["nb_films_vus"]         = compute_consommateur_marker(watched_df)
-    markers["ratio_peu_vus"]        = compute_explorateur_marker(ref, watched_df)
-    markers["moyenne_diff_rating"]  = compute_consensuel_marker(rating_df)
-    markers["ratio_par_genre"]      = compute_eclectique_marker(watched_df)
-    markers["nb_interactions"]      = compute_actif_marker(reviews_df, comments_df)
-
-    return markers
+### INDICATORS COMPUTATION FUNCTIONS ###
 
 def compute_consommateur_marker(watched_df):
     marker = int(len(watched_df))
@@ -143,22 +129,3 @@ def compute_eclectique_marker(watched_df):
 def compute_actif_marker(reviews_df, comments_df):
     marker = len(reviews_df) + len(comments_df)
     return marker
-
-### PARTIE INDICATEURS ###
-
-def smart_percentile(marker, all_markers):
-    all_markers = list(all_markers)
-    if marker in all_markers:
-        all_markers.remove(marker)
-    if not all_markers:
-        return 50
-    count = np.sum(np.array(all_markers) <= marker)
-    percentile = count / len(all_markers)
-    score = int(round(percentile * 100))
-
-    if score == 0:
-        score = 1
-    elif score == 100:
-        score = 99
-
-    return score

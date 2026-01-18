@@ -31,8 +31,9 @@ class DataHandler:
         """ Configure les données des feuilles de calcul"""
         self.films_data = self.api_handler.get_data_from_sheet("all_movies_data")
         self.profiles_data = self.api_handler.get_data_from_sheet("profiles_stats")
+        self.movie_not_dl_data = self.api_handler.get_data_from_sheet("movie_not_dl")
 
-    def get_films(self, all_movies, dfF, my_bar,movie_not_dl):
+    def get_films(self, all_movies, dfF, my_bar, movie_not_dl):
         """ Récupère les films manquants dans all_movies à partir de dfF"""
         
         df_errors   = []
@@ -41,7 +42,7 @@ class DataHandler:
         existing_movies = set(
             zip(all_movies['Title'].dropna().astype(str), all_movies['Year'].dropna())
         )
-        pairs = set(zip(movie_not_dl["Title"], movie_not_dl["Year"].astype(str)))
+        pairs = set(zip(self.movie_not_dl_data["Title"], self.movie_not_dl_data["Year"].astype(str)))
         for i, (_, row) in enumerate(dfF.iterrows()):
             title_year = (row['Name'], row['Year'])
             if title_year not in existing_movies:
@@ -60,10 +61,11 @@ class DataHandler:
                 except Exception as e:
                     # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
                     df_errors.append([self.uploaded_files.name, str(e), *row.values])
-            my_bar.progress(
-                int(100 * (i+1) / total_movies),
-                text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)"
-            )
+            my_bar.progress(int(100 * (i+1) / total_movies), text="""
+            Your data is being processed, this may take a few seconds...
+            This is a free project maintained by volunteers, there might be occasional delays and errors.                 
+            Follow us on Letterboxd : [exodus_](https://letterboxd.com/exodus_/) and [Montr0](https://letterboxd.com/Montr0/)
+            """)
 
         if df_errors:
             df_errors_df = pd.DataFrame(df_errors, columns=['File', 'Error', *dfF.columns])
@@ -123,7 +125,7 @@ class DataHandler:
                 
                 # Enrichissement des références
                 if exemple is None:
-                    movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar,self.api_handler.get_data_from_sheet("movie_not_dl"))
+                    movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar,self.movie_not_dl_data)
                     if movie_return is not None:
                         self.all_movies = movie_return
                     else:
@@ -145,8 +147,7 @@ class DataHandler:
 
                 self.radar_stats = compute_radar_stats_for_sheet(
                     self.all_movies, self.watched_mg, self.rating_mg,
-                    self.reviews, self.comments, 
-                    self.api_handler.get_data_from_sheet("profiles_stats")
+                    self.reviews, self.comments, self.profiles_data
                 )
 
                 if(st.secrets['prod']==True):
