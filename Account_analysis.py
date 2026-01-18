@@ -32,7 +32,8 @@ with open("src/html/bottom_bar.html") as f:
     bottom_bar = f.read()
 with open("src/html/main_title_and_instructions.html") as f:
     main_title_and_instructions = f.read()
-
+with open("src/html/poll.html") as f:
+    poll = f.read()
 ###
 
 data_handler = data_handler.DataHandler()
@@ -45,6 +46,24 @@ st.set_page_config(
         'Report a bug': "mailto:lelan.quentin56@gmail.com",
     }
 )
+if "button_poll" not in st.session_state:
+    st.session_state["button_poll"] = False
+
+#survey
+@st.fragment
+def survey():
+    st.header("We want to know your :blue[opinion]", divider="gray", anchor=False)
+    st.html(poll)
+    st.write("Do you find it practical and are you going to use it?")
+    left, right,empty = st.columns([1, 1,10])
+    if left.button("👍 Yes", key="poll_yes",disabled=st.session_state.get("button_poll", True), width='content'):
+        st.session_state["button_poll"] = True
+        data_handler.poll("Yes")
+        st.rerun(scope="fragment")
+    if right.button("👎 No", key="poll_no",disabled=st.session_state.get("button_poll", True), width='content'):
+        st.session_state["button_poll"] = True  
+        data_handler.poll("No") 
+        st.rerun(scope="fragment")
 
 st.markdown(main_title_and_instructions, unsafe_allow_html=True)
 
@@ -112,6 +131,7 @@ def calendar():
 def general_info():
     data_handler.set_year("Alltime")
 
+    survey()
     st.markdown("""<div class="header", style="margin-top: 5%;"></div>""", unsafe_allow_html=True)
     st.header("LET'S GET :blue[STARTED] - Quick facts", divider="gray", anchor=False)
 

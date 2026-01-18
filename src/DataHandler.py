@@ -673,4 +673,8 @@ class DataHandler:
     
     def get_wrapped(self):
         return self.wrapped_generator.generate_wrapped()
-###
+    
+    def poll(self,answer):
+        poll_df=self.api_handler.get_data_from_sheet("poll")
+        poll_df[answer]+=1
+        self.api_handler.update_poll_sheet(poll_df)

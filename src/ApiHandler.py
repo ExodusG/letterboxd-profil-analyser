@@ -38,7 +38,8 @@ class ApiHandler:
         self.profiles_sheet = self.spreadsheet.worksheet("profiles_stats")
         self.error_sheet    = self.spreadsheet.worksheet("error")
         self.film_not_dl    = self.spreadsheet.worksheet("movie_not_dl")
-        
+        self.poll_sheet    = self.spreadsheet.worksheet("poll")
+
     def get_data_from_sheet(self, sheet_str):
         """ Récupère les données d'une feuille de calcul"""
         sheet = self.spreadsheet.worksheet(sheet_str)
@@ -142,3 +143,8 @@ class ApiHandler:
                 response,status_code = self.get_movie_data_by_title(title, year)
         return response,status_code
 
+    def update_poll_sheet(self, poll_df):
+        """ Met à jour la feuille de calcul des sondages avec les nouvelles données """
+        self.poll_sheet.clear()
+        #self.poll_sheet.append_rows(poll_df.values.tolist())
+        self.poll_sheet.update([poll_df.columns.values.tolist()] + poll_df.values.tolist())

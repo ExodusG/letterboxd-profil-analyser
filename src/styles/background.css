@@ -55,6 +55,9 @@
     width: 50%;
 }
 
+.intro-container.no-margin{
+    margin-bottom: 0;
+}
 .intro-text p {
     font-size: 1.1rem;
     line-height: 1.6;

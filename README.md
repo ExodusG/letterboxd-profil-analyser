@@ -26,6 +26,9 @@ pip install -r requirements.txt
 
 ```toml
 API_KEY_ARRAY=["YOU_API_KEY"]
+prod="true for prod"
+dns="sentry dns"
+sheet_name="name file of gsheet"
 [gcp_service_account]
 #All the google drive app key
 ```
