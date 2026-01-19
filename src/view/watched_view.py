@@ -2,22 +2,23 @@ import streamlit as st
 from src.constants import WATCHED
 from src.view.map_view import event_map
 from src.view.wrapped_view import render_wrapped
+from src.render.bar_chart import bar_chart
 
 def render_watched_view(data_handler):
     if data_handler.get_current_year() == 2025:
         render_wrapped(data_handler)
     st.subheader(":blue[Genre] distribution of your watched films", divider=False, anchor=False)
-    fig = data_handler.genre(WATCHED)
+    fig = bar_chart(data_handler, WATCHED, "Genre", with_dots=True)
     st.plotly_chart(fig, width='stretch')
 
     watched_actor_col, watched_director_col = st.columns(2)
     with watched_actor_col:
         st.subheader(":blue[Actors] in your watched films", divider=False, anchor=False)
-        fig = data_handler.actor(WATCHED)
+        fig = bar_chart(data_handler, WATCHED, "Actors", with_dots=False)
         st.plotly_chart(fig, key="actor_watched")
     with watched_director_col:
         st.subheader(":blue[Directors] of your watched films", divider=False, anchor=False)
-        fig = data_handler.director(WATCHED)
+        fig = bar_chart(data_handler, WATCHED, "Director", with_dots=False)
         st.plotly_chart(fig, key="director_watched")
 
     st.subheader("Are you a :blue[Explorer] ?", divider=False, anchor=False)
@@ -53,11 +54,11 @@ def render_watched_view(data_handler):
         The graph shows the distribution of your watched films across different decades.
         </div>
         """, unsafe_allow_html=True)
-        fig = data_handler.decade_graph(WATCHED)
+        fig = bar_chart(data_handler, WATCHED, "Decade", with_dots=False)
         st.plotly_chart(fig, key="decade_watched")
 
     st.subheader(":blue[Runtime] distribution of your watched films", divider=False, anchor=False)
-    fig = data_handler.runtime_bar(WATCHED)
+    fig = bar_chart(data_handler, WATCHED, "Runtime", with_dots=True)
     st.plotly_chart(fig, key="runtime_bar_watched")
     st.subheader(":blue[Locations] distribution of your watched films", divider=False, anchor=False)
     fig = data_handler.mapW(WATCHED)

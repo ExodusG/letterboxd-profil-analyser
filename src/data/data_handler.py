@@ -84,6 +84,13 @@ class DataHandler:
     def get_watched_df(self):
         return self.watched_df
     
+    def get_dataframe(self, key):
+        if key == WATCHED:
+            return self.watched_df
+        elif key == WATCHLIST:
+            return self.watchlist_df
+        elif key == "RATING":
+            return self.rating_df
 
     def setup_user_upload(self, is_example, uploaded_files, my_bar):
         """ Configure les données de l'utilisateur à partir du fichier zip téléchargé"""
@@ -219,85 +226,7 @@ class DataHandler:
         self.corpus = clean_reviews(self.reviews_df)
         self.year = selected_year
 
-### Gestion des graphiques
-
-    def genre(self, key):
-        """ Prépare les data pour le GraphMaker et renvoie le graphique à l'interface"""
-        if key == WATCHED:
-            df_genres = self.watched_df[['Name', 'Year','Genre']].dropna()
-        elif key == WATCHLIST:
-            df_genres = self.watchlist_df[['Name', 'Year','Genre']].dropna()
-
-        df_genres['Genre'] = df_genres['Genre'].str.split(', ')
-        df_genres_exploded = df_genres.explode('Genre')
-
-        return self.graph_maker.graph_genre(df_genres_exploded)
-    
-    def actor(self, key):
-        if key == WATCHED:
-            #nb_actor = self.watched_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-            df=self.watched_df.copy()
-        elif key == WATCHLIST:
-            df=self.watchlist_df
-            #nb_actor = self.watchlist_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-        df_exploded = (
-            df.dropna(subset=['Actors'])
-            .assign(Actor=df['Actors'].str.split(', '))
-            .explode('Actor')
-        )
-
-        # Top 25 acteurs
-        top_actors = df_exploded['Actor'].value_counts().head(25).index
-        df_top = df_exploded[df_exploded['Actor'].isin(top_actors)]
-
-        # On regroupe : nb de films + titres associés
-        actor_movies = (
-            df_top.groupby('Actor')
-            .agg(
-                Count=('Title', 'count'),
-                Movies=('Title', lambda x: ', '.join(sorted(set(x))))
-            )
-            .reset_index()
-            .sort_values('Count', ascending=False)
-        )
-        actor_movies['MoviesText'] = actor_movies['Movies'].apply(make_movies_text_split)
-        #nb_actor.columns = ['Actors', 'Number of Movies']
-        return self.graph_maker.graph_actor(actor_movies)
-
-    def director(self, key):
-        if key == WATCHED:
-            nb_real = self.watched_df['Director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-        elif key == WATCHLIST:
-            nb_real = self.watchlist_df['Director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-        nb_real.columns = ['Director', 'Number of Movies']
-        if key == WATCHED:
-            #nb_actor = self.watched_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-            df=self.watched_df.copy()
-        elif key == WATCHLIST:
-            df=self.watchlist_df
-            #nb_actor = self.watchlist_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-        df_exploded = (
-            df.dropna(subset=['Director'])
-            .assign(Actor=df['Director'].str.split(', '))
-            .explode('Director')
-        )
-
-        # Top 25 acteurs
-        top_actors = df_exploded['Director'].value_counts().head(25).index
-        df_top = df_exploded[df_exploded['Director'].isin(top_actors)]
-
-        # On regroupe : nb de films + titres associés
-        director_movies = (
-            df_top.groupby('Director')
-            .agg(
-                Count=('Title', 'count'),
-                Movies=('Title', lambda x: ', '.join(sorted(set(x))))
-            )
-            .reset_index()
-            .sort_values('Count', ascending=False)
-        )
-        director_movies['MoviesText'] = director_movies['Movies'].apply(make_movies_text_split)
-        return self.graph_maker.graph_director(director_movies)
+### Gestion des graphique
 
     def famous(self, key):
         if key == WATCHED:
@@ -360,29 +289,6 @@ class DataHandler:
 
 ### DECADE
 
-    def decade_graph(self, key):
-        if key == WATCHED:
-            df = self.watched_df.copy()
-        elif key == WATCHLIST:
-            df = self.watchlist_df.copy()
-
-        df = df.dropna(subset=['Year']).copy()
-        df['Year'] = df['Year'].astype(int)
-
-        # Calcul du bin de 5 ans
-        df['FiveYearBin'] = df['Year'].apply(lambda y: f"{(y//5)*5}-{(y//5)*5+4}")
-
-        # Groupby sur la tranche de 5 ans
-        grouped = (
-            df.groupby('FiveYearBin')
-            .agg(Number=('Title', 'count'), Movies=('Title', list))
-            .reset_index()
-            .sort_values('FiveYearBin')
-        )
-        grouped['MoviesText'] = grouped['Movies'].apply(make_movies_text)
-
-        return self.graph_maker.graph_decade(grouped)
-    
     def decade_div(self, key):
         if key == WATCHED:
             df_decade = self.watched_df.copy()
@@ -398,19 +304,7 @@ class DataHandler:
 
 ### 
 
-    def runtime_bar(self, key):
-        if key == WATCHED:
-            df = self.watched_df.copy()
-        elif key == WATCHLIST:
-            df = self.watchlist_df.copy()
-        df = df[(df['Runtime'] >= 10) & (df['Runtime'] <= 300)]
-        #bins = list(range(df['Runtime'].min(), df['Runtime'].max() + 10, 10))  # Bins de 10 minutes de 0 à 300 minutes
-        bins = list(range(10, 301, 10))
-        labels = [f'{i}-{i+9}' for i in bins[:-1]]
-        df['RuntimeBin'] = pd.cut(df['Runtime'], bins=bins, labels=labels, right=True, include_lowest=True)
-        runtime_counts = df['RuntimeBin'].value_counts().sort_index().reset_index()
-        runtime_counts.columns = ['RuntimeBin', 'Count']
-        return self.graph_maker.graph_runtime_bar(df)
+
 
     def mapW(self, key):
         if key == WATCHED:
