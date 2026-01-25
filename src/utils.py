@@ -15,8 +15,8 @@ def sanitize(value):
     return value
 
 def clean_year(df):
-    df = df[pd.to_numeric(df['Year'], errors='coerce').notna()]
-    df['Year'] = df['Year'].astype(float).astype(int).astype(str)
+    df = df.loc[pd.to_numeric(df['Year'], errors='coerce').notna()].copy()
+    df.loc[:, 'Year'] = df['Year'].astype(float).astype(int).astype(str)
     return df
 
 def clean_imdbv(df):
@@ -32,12 +32,13 @@ def clean_imdbr(df):
     return df
 
 def clean_runtime(df):
-    df['Runtime']=df['Runtime'].str.split(' ').str[0]
-    df = df[df['Runtime'].notna() & ~df['Runtime'].str.contains('s', case=False, na=True)] #remove the runtime in seconde
-    df['Runtime'] = df['Runtime'].str.replace(',', '', regex=False)
-    df['Runtime'] = df['Runtime'].apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
+    df = df.copy()
+    df.loc[:, 'Runtime'] = df['Runtime'].str.split(' ').str[0]
+    df = df.loc[df['Runtime'].notna() & ~df['Runtime'].str.contains('s', case=False, na=True)].copy() #remove the runtime in seconde
+    df.loc[:, 'Runtime'] = df['Runtime'].str.replace(',', '', regex=False)
+    df.loc[:, 'Runtime'] = df['Runtime'].apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
     df = df.dropna(subset=['Runtime'])
-    df['Runtime'] = df['Runtime'].astype(int)
+    df.loc[:, 'Runtime'] = df['Runtime'].astype(int)
     return df
 
 def clean_reviews(df):
@@ -104,9 +105,9 @@ def compute_quantiles(df):
         return 0, 0, 0, 0
     clean_df = clean_votes(df)
     clean_df = clean_df.sort_values(by=['imdbVotes'])
-    q1 = np.quantile(clean_df['imdbVotes'], 0.05)
-    q2 = np.quantile(clean_df['imdbVotes'], 0.20)
-    q3 = np.quantile(clean_df['imdbVotes'], 0.50)
+    q1 = np.quantile(clean_df['imdbVotes'], 0.25)
+    q2 = np.quantile(clean_df['imdbVotes'], 0.50)
+    q3 = np.quantile(clean_df['imdbVotes'], 0.75)
     return q1, q2, q3
 
 def compute_categories(ref, df):
@@ -122,7 +123,7 @@ def compute_categories(ref, df):
 
     counts = [len(clean_df[intervals[i]]) for i in range(4)]
     result = pd.DataFrame({
-        'category': ['Obscure', 'Lesser-known', 'Well-known', 'Mainstream'],
+        'category': ['Niche', 'Lesser-known', 'Well-known', 'Mainstream'],
         'number': counts
     })
     return result
@@ -133,22 +134,16 @@ def bind_categories(ref):
     q1, q2, q3 = compute_quantiles(ref)
     clean_ref = clean_votes(ref)
     clean_ref['category'] = clean_ref['imdbVotes'].apply(
-        lambda x: 'Obscure' if x <= q1 else
+        lambda x: 'Niche' if x <= q1 else
                   'Lesser-known' if q1 < x <= q2 else
                   'Well-known' if q2 < x <= q3 else
                   'Mainstream'
     )
     return clean_ref
 
-def make_movies_text(movie_list):
-    movies = movie_list[:10]
-    movies_text = "\n".join(f"• {m}<br>" for m in movies)
-    if len(movie_list) > 10:
-        movies_text += f"\n...and {len(movie_list) - 10} more"
-    return movies_text
-
-def make_movies_text_split(movie_list):
-    movie_list=movie_list.split(', ')
+def make_movies_text(movie_list, split=False):
+    if split:
+        movie_list=movie_list.split(', ')
     movies = movie_list[:10]
     movies_text = "\n".join(f"• {m}<br>" for m in movies)
     if len(movie_list) > 10:

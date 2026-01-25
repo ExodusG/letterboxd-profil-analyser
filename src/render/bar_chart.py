@@ -4,10 +4,10 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 
-from src.utils import make_movies_text, make_movies_text_split
+from src.utils import make_movies_text
 from src.constants import PALETTE
 
-def bar_chart(data_handler, view_name, x_axis_name, with_dots=False):
+def bar_chart(data_handler, view_name, x_axis_name, with_dots=False, reverse=False):
     df = data_handler.get_dataframe(view_name)
     match x_axis_name:
         case "Actors":
@@ -22,7 +22,7 @@ def bar_chart(data_handler, view_name, x_axis_name, with_dots=False):
             data = _bar_decade_data(df)
         case _:
             raise ValueError(f"Unknown x_axis_name: {x_axis_name}")
-    fig = _bar_people_chart(data, with_dots)
+    fig = _bar_chart_fig(data, with_dots, reverse)
     return fig
 
 
@@ -49,7 +49,7 @@ def _bar_people_data(df, people_type):
         .sort_values('Count', ascending=False)
     )
     
-    people_movies['MoviesText'] = people_movies['Movies'].apply(make_movies_text_split)
+    people_movies['MoviesText'] = people_movies['Movies'].apply(lambda x: make_movies_text(x, split=True))
 
     # rename for consistency in plotting function
     people_movies.rename(columns={'Person': 'x'}, inplace=True)
@@ -76,11 +76,11 @@ def _bar_genre_data(df):
     return genre_counts
 
 def _bar_runtime_data(df):
-    df = df[(df['Runtime'] >= 10) & (df['Runtime'] <= 300)]
+    df = df[(df['Runtime'] >= 10) & (df['Runtime'] <= 300)].copy()
     #bins = list(range(df['Runtime'].min(), df['Runtime'].max() + 10, 10))  # Bins de 10 minutes de 0 à 300 minutes
     bins = list(range(10, 301, 10))
     labels = [f'{i}-{i+9}' for i in bins[:-1]]
-    df['RuntimeBin'] = pd.cut(df['Runtime'], bins=bins, labels=labels, right=True, include_lowest=True)
+    df.loc[:, 'RuntimeBin'] = pd.cut(df['Runtime'], bins=bins, labels=labels, right=True, include_lowest=True)
     runtime_counts = df['RuntimeBin'].value_counts().sort_index().reset_index()
     runtime_counts.columns = ['RuntimeBin', 'Count']
     # restructure for consistency in plotting function
@@ -118,7 +118,7 @@ def _bar_decade_data(df):
 
 # plotting function
 
-def _bar_people_chart(data, with_dots,):
+def _bar_chart_fig(data, with_dots, reverse):
 
     if not with_dots:
         colors = [PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]
@@ -144,7 +144,7 @@ def _bar_people_chart(data, with_dots,):
                 range=[-0.5, 14.5],  # Show 15 bars initially
             ),
             yaxis=dict(
-                title='Films count',
+                title='',
                 showgrid=True,
                 tickmode='array',
                 tickfont=dict(size=14),
@@ -156,6 +156,9 @@ def _bar_people_chart(data, with_dots,):
             showlegend=False,
             dragmode="pan",  # Disable dragging
         )
+
+        if reverse:
+            fig.update_xaxes(autorange="reversed")
 
         return fig
 
@@ -213,7 +216,7 @@ def _bar_people_chart(data, with_dots,):
 
         fig.update_layout(
             xaxis_title='',
-            yaxis_title='Films count',
+            yaxis_title='',
             height=400,
             margin=dict(l=40, r=40, t=40, b=40),
             bargap=0.13,
@@ -232,5 +235,8 @@ def _bar_people_chart(data, with_dots,):
         )
 
         fig.update_yaxes(tickfont=dict(size=14), title_font=dict(size=16))
+
+        if reverse:
+            fig.update_xaxes(autorange="reversed")
 
         return fig

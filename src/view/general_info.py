@@ -4,16 +4,6 @@ from src.view.calendar_view import render_calendar
 def render_general_info(data_handler):
     data_handler.set_year("Alltime")
 
-    st.markdown("""<div class="header", style="margin-top: 5%;"></div>""", unsafe_allow_html=True)
-    st.header("LET'S GET :blue[STARTED] - Quick facts", divider="gray", anchor=False)
-
-    st.info("""
-    For better visualization, we decided to establish certain criteria to exclude specific data :
-    - We do not include TV series or episodes
-    - We do not include movies shorter than 5 minutes
-    - We do not include movies under 20 minutes with fewer than 1,000 IMDb votes
-    """, icon="ℹ️")
-
     div = data_handler.general_metrics_div()
     st.html(div)
     st.html("<div class='spacer', style='margin-bottom: 5%;'></div>")

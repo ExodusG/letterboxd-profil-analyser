@@ -57,202 +57,6 @@ class GraphMaker:
 
         return div
 
-    def graph_genre(self, df) :
-
-        genre_counts = df['Genre'].value_counts().sort_index().reset_index()
-        genre_counts.columns = ['Genre', 'Count']
-        genre_counts = genre_counts.sort_values('Count', ascending=False)
-
-        bins = genre_counts['Genre'].tolist()
-        bin_pos = np.arange(len(bins))
-        fig = go.Figure()
-
-        # Barplot (fond, transparent)
-        fig.add_trace(go.Bar(
-            x=bin_pos,
-            y=genre_counts['Count'],
-            marker_color=PALETTE['orange'],
-            opacity=0.10,
-            width=0.95,
-            showlegend=False,
-            text=genre_counts['Count'],
-            hovertemplate=None,
-            hoverinfo='skip'
-        ))
-
-        for i, bin_label in enumerate(bins):
-            sub_df = df[df['Genre'] == bin_label]
-            if sub_df.empty:
-                continue
-
-            n_points = sub_df.shape[0]
-            count = df[df['Genre'] == bin_label]['Genre'].count()
-            # Étalement vertical des points sur toute la hauteur de la barre
-            if n_points == 1:
-                y = [count/2]
-            else:
-                y = np.linspace(0.5, count-0.5, n_points)
-            # Jitter horizontal centré sur la barre
-            x = bin_pos[i] + np.random.uniform(-0.35, 0.35, n_points)
-
-            palette_keys = ['orange', 'vert', 'bleu']
-            BIN_COLORS = [PALETTE[k] for k in palette_keys]
-            fig.add_trace(go.Scatter(
-                x=x,
-                y=y,
-                mode='markers',
-                marker=dict(
-                    color=BIN_COLORS[i % len(BIN_COLORS)],
-                    size=9,
-                    opacity=0.85,
-                    line=dict(width=0)
-                ),
-                customdata=sub_df[['Name', 'Year']],
-                hovertemplate='<b>%{customdata[0]} (%{customdata[1]})</b><extra></extra>',
-                showlegend=False
-            ))
-
-        fig.update_layout(
-            xaxis_title='',
-            yaxis_title='Films count',
-            height=400,
-            margin=dict(l=40, r=40, t=40, b=40),
-            bargap=0.13,
-            barcornerradius=7,
-            xaxis=dict(
-                tickmode='array',
-                tickvals=bin_pos,
-                ticktext=bins,
-                tickfont=dict(size=14),
-                title_font=dict(size=16),
-                fixedrange=True
-                ),
-            yaxis=dict(
-                fixedrange=True
-            )
-        )
-
-        fig.update_yaxes(tickfont=dict(size=14), title_font=dict(size=16))
-
-        return fig
-
-    def _create_bar_chart(self, df, x_axis, y_axis='Count'):
-        colors = [PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]
-        color_seq = [colors[i % len(colors)] for i in range(len(df))]
-
-        fig = px.bar(
-            df,
-            x=x_axis,
-            y=y_axis,
-            text=y_axis,
-            color=x_axis,
-            color_discrete_sequence=color_seq,
-            custom_data='MoviesText',
-        )
-
-        fig.update_traces(
-            textposition='inside',
-            hovertemplate='<b>%{x}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
-        )
-
-        fig.update_layout(
-            xaxis=dict(
-                tickangle=-35,
-                showgrid=False,
-                tickfont=dict(size=14),
-                title_font=dict(size=16),
-                fixedrange=True
-            ),
-            yaxis=dict(
-                title='Number of Movies',
-                showgrid=True,
-                tickmode='array',
-                tickfont=dict(size=14),
-                title_font=dict(size=16),
-                fixedrange=True
-            ),
-            bargap=0.17,
-            barcornerradius=8,
-            showlegend=False,
-        )
-
-        return fig
-
-    def graph_director(self, df):
-        return self._create_bar_chart(df, 'Director')
-
-    def graph_actor(self, df):
-        return self._create_bar_chart(df, 'Actor')
-
-    def cinephile_graph(self, result):
-
-        fig = go.Figure(go.Pie(
-            labels=result['category'],
-            values=result['number'],
-            textinfo='label+percent',
-            hole=0.7,
-            marker=dict(colors=[PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']]),
-            textfont=dict(size=16),
-            insidetextorientation='auto',
-            pull=[0.3, 0.2, 0.1, 0],  # Pull the slices out a bit for emphasis
-            rotation=90,
-            sort=False,
-            customdata=result['MoviesText'],
-        ))
-
-        fig.update_traces(
-            showlegend=False,
-            hovertemplate='<b>%{label}</b><br>%{customdata}<extra></extra>'
-        )
-
-        fig.update_layout(
-            margin=dict(t=20, b=20, r=20, l=20)
-        )
-        return fig
-
-    def graph_decade(self, df):
-        fig = px.bar(
-            df,
-            x='Number',
-            y='FiveYearBin',
-            text='Number',
-            color='FiveYearBin',
-            color_discrete_sequence=[PALETTE['orange'], PALETTE['vert'], PALETTE['bleu']],
-            orientation='h',
-            custom_data=["MoviesText"],
-        )
-
-        fig.update_traces(
-            hovertemplate='<b>%{y}</b><br>Films:<br>%{customdata[0]}<extra></extra>',
-            #hovertemplate='<b>%{y}</b><br>%{x}<extra></extra>',
-            marker_line_color="#444",
-            textfont_size=14,
-            textposition="outside"
-        )
-        fig.update_layout(
-            xaxis_title='',
-            yaxis_title='Number of films',
-            margin=dict(t=80, b=60),
-            xaxis=dict(
-                tickfont=dict(size=18),
-                fixedrange=True,
-                showgrid=True,
-            ),
-            yaxis=dict(
-                title_font=dict(size=16),
-                tickfont=dict(size=14),
-                fixedrange=True,
-                ticks='outside',
-                tickmode='linear',
-                dtick=1,
-            ),
-            barcornerradius=7,
-            showlegend=False,
-            bargap=0.2
-        )
-        
-        return fig
-
     def graph_mapW(self, df):
         
         custom_scale=["#40BCF4","#00E054","#FF8C00"]
@@ -490,83 +294,6 @@ class GraphMaker:
         ax.imshow(wc, interpolation = 'bilinear')
         plt.axis('off')
         return fig
-
-    def graph_runtime_bar(self, df):
-       # Comptage par bin pour les barres de fond
-        runtime_counts = df['RuntimeBin'].value_counts().sort_index().reset_index()
-        runtime_counts.columns = ['RuntimeBin', 'Count']
-
-        bins = runtime_counts['RuntimeBin'].tolist()
-        bin_pos = np.arange(len(bins))
-        fig = go.Figure()
-
-        # Barplot (fond, transparent)
-        fig.add_trace(go.Bar(
-            x=bin_pos,
-            y=runtime_counts['Count'],
-            marker_color=PALETTE['orange'],
-            opacity=0.10,
-            width=0.95,
-            showlegend=False,
-            hovertemplate=None,
-            hoverinfo='skip'
-        ))
-
-        # Swarmplot pour chaque bin
-        for i, bin_label in enumerate(bins):
-            sub_df = df[df['RuntimeBin'] == bin_label]
-            if sub_df.empty:
-                continue
-
-            n_points = sub_df.shape[0]
-            count = runtime_counts.loc[i, 'Count']
-            # Étalement vertical des points sur toute la hauteur de la barre
-            if n_points == 1:
-                y = [count/2]
-            else:
-                y = np.linspace(0.5, count-0.5, n_points)
-            # Jitter horizontal centré sur la barre
-            x = bin_pos[i] + np.random.uniform(-0.35, 0.35, n_points)
-
-            palette_keys = ['orange', 'vert', 'bleu']
-            BIN_COLORS = [PALETTE[k] for k in palette_keys]
-            fig.add_trace(go.Scatter(
-                x=x,
-                y=y,
-                mode='markers',
-                marker=dict(
-                    color=BIN_COLORS[i % len(BIN_COLORS)],
-                    size=9,
-                    opacity=0.85,
-                    line=dict(width=0)
-                ),
-                customdata=sub_df[['Title', 'Year','Runtime']],
-                hovertemplate='<b>%{customdata[0]} (%{customdata[1]})</b><br>%{customdata[2]} min<extra></extra>',
-                showlegend=False
-            ))
-
-        fig.update_layout(
-            xaxis_title='Runtime (minutes)',
-            yaxis_title='Films count',
-            height=400,
-            margin=dict(l=40, r=40, t=40, b=40),
-            bargap=0.13,
-            barcornerradius=7,
-            xaxis=dict(
-                tickmode='array',
-                tickvals=bin_pos,
-                ticktext=bins,
-                tickfont=dict(size=14),
-                title_font=dict(size=16),
-                fixedrange=True
-                ),
-            yaxis=dict(
-                fixedrange=True
-            )
-        )
-        fig.update_yaxes(tickfont=dict(size=14), title_font=dict(size=16))
-
-        return fig
     
     def movie_per_year(self, df):
         films_par_annee = df['Year'].value_counts().sort_index()
@@ -638,7 +365,6 @@ class GraphMaker:
         two_div = f"""
         <div class="two_div-flex">
         <div class="two_div-col">
-            <div class="two_div-title">The 4 {first_word} films {final_text}</div>
             <div class="two_div-grid">
             {''.join([
                 f'<div class="two_div-poster"><img src="{img}"><span class="two_div-tooltip">{title} ({year})</span></div>'
@@ -646,9 +372,9 @@ class GraphMaker:
                 for img, title, year in zip(first_imgs, first_list["Title"][:4], first_list["Year"][:4])
             ])}
             </div>
+            <div class="two_div-title">The 4 {first_word} films {final_text}</div>
         </div>
         <div class="two_div-col">
-            <div class="two_div-title">The 4 {second_word} films {final_text}</div>
             <div class="two_div-grid">
             {''.join([
                 f'<div class="two_div-poster"><img src="{img}"><span class="two_div-tooltip">{title} ({year})</span></div>'
@@ -656,6 +382,7 @@ class GraphMaker:
                 for img, title, year in zip(second_imgs, second_list["Title"][:4], second_list["Year"][:4])
             ])}
             </div>
+            <div class="two_div-title">The 4 {second_word} films {final_text}</div>
         </div>
         </div>
         """

@@ -91,6 +91,20 @@ class DataHandler:
             return self.watchlist_df
         elif key == "RATING":
             return self.rating_df
+        elif key == "REVIEWS":
+            return self.reviews_df
+        elif key == "CORPUS":
+            return self.corpus
+        elif key == "ALL_MOVIES":
+            return self.all_movies
+        elif key == "RATING_MG":
+            return self.rating_mg
+        elif key == "WATCHED_MG":
+            return self.watched_mg
+        elif key == "WATCHLIST_MG":
+            return self.watchlist_mg
+        else:
+            raise ValueError(f"Unknown key: {key}")
 
     def setup_user_upload(self, is_example, uploaded_files, my_bar):
         """ Configure les données de l'utilisateur à partir du fichier zip téléchargé"""
@@ -246,30 +260,6 @@ class DataHandler:
 
 ### CINEPHILE
 
-    def cinephile_graph(self, key):
-
-           # Générer une colonne texte pour le hover
-        def make_movies_text(movie_list):
-            # Limite l'affichage à 10 films max par genre (pour la lisibilité)
-            movies = movie_list[:10]
-            movies_text = "<br>".join(f"• {m}" for m in movies)
-            if len(movie_list) > 10:
-                movies_text += f"<br><span style='color:#888; font-size:12px;'>...and {len(movie_list) - 10} more</span>"
-            return movies_text
-
-        if key == WATCHED:
-            habit = self.watched_df.copy()
-        elif key == WATCHLIST:
-            habit = self.watchlist_df.copy()
-
-        result = compute_categories(self.all_movies, habit)
-        result['Films'] = result['category'].apply(
-            lambda x: habit[habit['category'] == x]['Title'].tolist()
-        )
-        result['MoviesText'] = result['Films'].apply(make_movies_text)
-
-        return self.graph_maker.cinephile_graph(result)
-
     def cinephile_div(self, key):
         if key== WATCHED:
             habit = self.watched_df.copy()
@@ -286,25 +276,6 @@ class DataHandler:
         return self.graph_maker.two_div_four_films(mainstream_films, obscure_films, "most popular", "least popular", text)
 
 ### 
-
-### DECADE
-
-    def decade_div(self, key):
-        if key == WATCHED:
-            df_decade = self.watched_df.copy()
-            text = "you've watched"
-        elif key == WATCHLIST:
-            df_decade = self.watchlist_df.copy()
-            text = "you want to see"
-        df_decade=df_decade.sort_values('Year', ascending=True)
-        oldest_films = df_decade.head(4)
-        newest_films = df_decade.tail(4)
-
-        return self.graph_maker.two_div_four_films(oldest_films, newest_films, "oldest", "most recent", text)
-
-### 
-
-
 
     def mapW(self, key):
         if key == WATCHED:
@@ -341,7 +312,6 @@ class DataHandler:
     def diff_rating(self):
         sur_note = self.rating_df.sort_values(by=['diff_rating'],ascending=False)
         sur_note = sur_note.head(10).reset_index(drop=True)
-
         sous_note = self.rating_df.sort_values(by=['diff_rating'])
         sous_note = sous_note.head(10).reset_index(drop=True)
         return sur_note[['Name','Rating','imdbRating','diff_rating']], sous_note[['Name','Rating','imdbRating','diff_rating']]
@@ -389,7 +359,7 @@ class DataHandler:
             .reset_index()
             .sort_values('Nb_Films', ascending=False)
         )
-        df_plot['MoviesText'] = df_plot['Movies'].apply(make_movies_text_split)
+        df_plot['MoviesText'] = df_plot['Movies'].apply(lambda x: make_movies_text(x, split=True))
         return self.graph_maker.graph_rating_director(df_plot)
 
     def rating_actor(self):
@@ -436,7 +406,7 @@ class DataHandler:
             .reset_index()
             .sort_values('Nb_Films', ascending=False)
         )
-        df_actor_plot['MoviesText'] = df_actor_plot['Movies'].apply(make_movies_text_split)
+        df_actor_plot['MoviesText'] = df_actor_plot['Movies'].apply(lambda x: make_movies_text(x, split=True))
         return self.graph_maker.graph_rating_actor(df_actor_plot)
 
     def genre_rating(self):

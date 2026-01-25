@@ -2,14 +2,15 @@
 
 # modules externes
 import streamlit as st
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # modules internes
 from src.assets import load_css, load_html
 
 from src.data import DataHandler
 
-from src.view.watched_view import render_watched_view
-from src.view.watchlist_view import render_watchlist_view
+from src.view.generic_main_view import render_generic_main_view
 from src.view.ratings_view import render_ratings_view
 from src.view.selection_view import render_selection
 from src.view.general_info import render_general_info
@@ -38,48 +39,62 @@ def configure_app():
 
 
 def get_user_choice(data_handler):
-    uploaded_files = st.file_uploader(
-        accept_multiple_files=False,
-        key=st.session_state["uploader_key"],
-        type=["zip"],
-        label=" "
-    )
 
-    # user upload
-    if uploaded_files is not None:
-        my_bar = st.progress(0, text="Processing your data...")
-        with my_bar:
-            data_handler.setup_user_upload(False, uploaded_files, my_bar)
-        my_bar.empty()
-        return True
+    st.space(size="medium")
+    left, middle, right = st.columns([1, 1, 1])
+    with middle:
+        uploaded_files = st.file_uploader(
+            accept_multiple_files=False,
+            key=st.session_state["uploader_key"],
+            type=["zip"],
+            label=" "
+        )
 
-    # example data
-    if st.button("📂 Try example data", key="example_btn"):
-        my_bar = st.progress(0, text="Loading example data...")
-        with my_bar:
-            data_handler.setup_user_upload(True, None, my_bar)
-        my_bar.empty()
-        return True
+        # user upload
+        if uploaded_files is not None:
+            my_bar = st.progress(0, text="Processing your data...")
+            with my_bar:
+                data_handler.setup_user_upload(False, uploaded_files, my_bar)
+            my_bar.empty()
+            return True
 
+        # example data
+        if st.button("📂 Try example data", key="example_btn"):
+            my_bar = st.progress(0, text="Loading example data...")
+            with my_bar:
+                data_handler.setup_user_upload(True, None, my_bar)
+            my_bar.empty()
+            return True
+
+    st.space(size="medium")
     return False
+
 
 
 @st.fragment
 def detailed_profile_analysis(data_handler):
     cat = render_selection(data_handler)
-    match cat:
-        case "Watched":
-            render_watched_view(data_handler)
-        case "Watchlist":
-            render_watchlist_view(data_handler)
-        case "Rating":
-            render_ratings_view(data_handler)
+    if cat == "ratings":
+        render_ratings_view(data_handler)
+    else:
+        render_generic_main_view(data_handler, cat)
 
 @st.fragment
 def app(data_handler):
     if get_user_choice(data_handler):
-        render_general_info(data_handler)
-        detailed_profile_analysis(data_handler)
+        left, middle, right = st.columns([1, 2, 1])
+        with middle:
+            st.info("""
+            For better visualization, we decided to establish certain criteria to exclude specific data :
+            - We do not include TV series or episodes
+            - We do not include movies shorter than 5 minutes
+            - We do not include movies under 20 minutes with fewer than 1,000 IMDb votes
+            """, icon="ℹ️")
+        st.space(size="medium")
+        with st.container():
+            render_general_info(data_handler)
+        with st.container():
+            detailed_profile_analysis(data_handler)
 
 
 def main():
