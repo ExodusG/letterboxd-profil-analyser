@@ -81,6 +81,13 @@ def clean_small_films(df):
     clean_df = clean_df[mask]
     return clean_df
 
+def clean_error_movie(df):
+    
+    df = df.copy()
+
+    df.columns = ["File","Error","Date","Title","Year","Link"]
+    df_filtered = df[df["Error"] == "Movie not found!"]
+    return df_filtered
 ##
 
 ## DATASET EXTRACTION FUNCTIONS ##

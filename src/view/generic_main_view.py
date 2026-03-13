@@ -16,7 +16,7 @@ def render_generic_main_view(data_handler, key):
                 </div>
                 """, unsafe_allow_html=True)
     fig = bar_chart(data_handler, key, "Genre", with_dots=True)
-    st.plotly_chart(fig, key="genre", use_container_width=True)
+    st.plotly_chart(fig, key="genre", width='stretch')
 
     watched_actor_col, watched_director_col = st.columns(2)
     with watched_actor_col:
@@ -57,7 +57,7 @@ def render_generic_main_view(data_handler, key):
                     </ul>
                     """, unsafe_allow_html=True)
         fig = donut_chart(data_handler, key)
-        st.plotly_chart(fig, key="cinephile_graph", use_container_width=True)
+        st.plotly_chart(fig, key="cinephile_graph", width='stretch')
     
     with niche_right:
         least_niche, most_niche = st.columns([1, 1], gap="medium")
@@ -90,7 +90,7 @@ def render_generic_main_view(data_handler, key):
             st.markdown(f"<div style='text-align: center; font-size: 0.85em; margin-top: 8px; color: #aaa;'>your four most recent {key} films</div>", unsafe_allow_html=True)
     with decade_right:
         fig = bar_chart(data_handler, key, "Decade", with_dots=False, reverse=True)
-        st.plotly_chart(fig, key="decade", use_container_width=True)
+        st.plotly_chart(fig, key="decade", width='stretch')
 
     st.subheader(f":blue[Duration] breakdown of your :blue[{key}] films", divider=False, anchor=False)
     st.markdown(f"""

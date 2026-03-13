@@ -6,7 +6,7 @@ def render_selection(data_handler):
     st.header("YOUR :blue[PROFILE] ANALYSIS", divider="gray", anchor=False)
 
     st.markdown("""
-    <div style='background-color: #1e1e1e; padding: 10px; border-radius: 8px; margin-top: 20px;'>
+    <div style='background-color: #262730;; padding: 10px; border-radius: 8px; margin-top: 20px; margin-bottom: 20px; text-align: center;'>
         <span style='font-size: 1.1em; color: #e8e8e8;'>🎬 <b>Tip:</b> Use the buttons to switch category or year. All stats update instantly!</span>
     </div>
     """, unsafe_allow_html=True)
@@ -33,7 +33,7 @@ def render_selection(data_handler):
             year = sac.segmented(
                 items=[sac.SegmentedItem(label=f"{y}") for y in years],
                 align='center',
-                size='lg',
+                size='xl',
                 radius='lg',
                 color='blue',
                 use_container_width=True

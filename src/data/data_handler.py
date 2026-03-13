@@ -32,6 +32,8 @@ class DataHandler:
         self.films_data = self.api_handler.get_data_from_sheet("all_movies_data")
         self.profiles_data = self.api_handler.get_data_from_sheet("profiles_stats")
         self.movie_not_dl_data = self.api_handler.get_data_from_sheet("movie_not_dl")
+        self.error_movie=self.api_handler.get_data_from_sheet("error")
+        self.error_movie=clean_error_movie(self.error_movie)
 
     def get_films(self, all_movies, dfF, my_bar):
         """ Récupère les films manquants dans all_movies à partir de dfF"""
@@ -43,13 +45,16 @@ class DataHandler:
             zip(all_movies['Title'].dropna().astype(str), all_movies['Year'].dropna())
         )
         pairs = set(zip(self.movie_not_dl_data["Title"], self.movie_not_dl_data["Year"].astype(str)))
+        pairs_error = set(zip(self.error_movie["Title"], self.error_movie["Year"].astype(str)))
         for i, (_, row) in enumerate(dfF.iterrows()):
             title_year = (row['Name'], row['Year'])
             if title_year not in existing_movies:
                 try:
                     #on regarde si le film n'est pas dans la liste des films à ne pas télécharger
                     if((row['Name'], row['Year']) in pairs):
-                        df_errors.append([self.uploaded_files.name, "Movie not dl", *row.values])
+                        df_errors.append([self.uploaded_files.name, "Movie to not dl", *row.values])
+                    elif((row['Name'], row['Year']) in pairs_error):
+                        df_errors.append([self.uploaded_files.name, "Movie already in error", *row.values])
                     else:
                         films_data,status_code = self.api_handler.get_movie_data_by_title(row['Name'], row['Year'])
                         if status_code ==503:
