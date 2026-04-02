@@ -50,7 +50,7 @@ class ApiHandler:
         """ Ajoute les films à la feuille de calcul"""
         df_movies['Ratings'] = df_movies['Ratings'].apply(lambda x: json.dumps(x) if isinstance(x, list) else x)
         df_movies = clean_year(df_movies)
-        rows = df_movies.applymap(sanitize).values.tolist()
+        rows = df_movies.map(sanitize).values.tolist()
         # peut ajouter chaque nouvelle ligne, plutot que tout effacer
         #sheet.clear()  # Efface l'ancienne feuille
         #sheet.update([all_movies.columns.values.tolist()] + all_movies.values.tolist())
@@ -92,7 +92,7 @@ class ApiHandler:
     def add_error_to_sheet(self, df_errors):
         """Ajoute les erreurs à la feuille de calcul des erreurs"""
         if(st.secrets['prod']==True):
-            cleaned_rows = df_errors.applymap(sanitize).values.tolist()
+            cleaned_rows = df_errors.map(sanitize).values.tolist()
             self.error_sheet.append_rows(cleaned_rows)
 
     def get_all_means(self) :
