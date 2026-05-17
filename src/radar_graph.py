@@ -3,9 +3,9 @@ import numpy as np
 import json
 
 
-def compute_radar_stats_for_sheet(ref, watched_df, rating_df, reviews_df, comments_df, profiles_stats):
-    scores = compute_scores(ref, watched_df, rating_df, reviews_df, comments_df, profiles_stats)
-    markers = compute_markers(ref, watched_df, rating_df, reviews_df, comments_df)
+def compute_radar_stats_for_sheet(quartile, watched_df, rating_df, reviews_df, comments_df, profiles_stats):
+    scores = compute_scores(quartile, watched_df, rating_df, reviews_df, comments_df, profiles_stats)
+    markers = compute_markers(quartile, watched_df, rating_df, reviews_df, comments_df)
     return {**scores, **markers}
 
 ### PARTIE SCORE ###
@@ -17,7 +17,7 @@ def compute_radar_stats_for_sheet(ref, watched_df, rating_df, reviews_df, commen
 #   Actif          : Représente le niveau d'activité et d'interaction de l'utilisateur sur la plateforme.
 
 # Calcul des scores pour chaque composante
-def compute_scores(ref, watched_df, rating_df, reviews_df, comments_df, profiles_stats):
+def compute_scores(quartile, watched_df, rating_df, reviews_df, comments_df, profiles_stats):
     scores = {
         "Consommateur": 0,
         "Explorateur": 0,
@@ -28,7 +28,7 @@ def compute_scores(ref, watched_df, rating_df, reviews_df, comments_df, profiles
 
     # Calcul des scores pour chaque composante
     scores["Consommateur"]  = compute_consommateur_score(watched_df, profiles_stats)
-    scores["Explorateur"]   = compute_explorateur_score(ref, watched_df, profiles_stats)
+    scores["Explorateur"]   = compute_explorateur_score(quartile, watched_df, profiles_stats)
     scores["Consensuel"]    = compute_consensuel_score(rating_df, profiles_stats)
     scores["Éclectique"]    = compute_eclectique_score(watched_df, profiles_stats)
     scores["Actif"]         = compute_actif_score(reviews_df, comments_df, profiles_stats)
@@ -41,8 +41,8 @@ def compute_consommateur_score(watched_df, profiles_stats):
     consommateur = smart_percentile(marker, all_markers)
     return consommateur
 
-def compute_explorateur_score(ref, watched_df, profiles_stats):
-    marker = compute_explorateur_marker(ref, watched_df)
+def compute_explorateur_score(quartile, watched_df, profiles_stats):
+    marker = compute_explorateur_marker(quartile, watched_df)
     all_markers = np.array(profiles_stats['ratio_peu_vus'])
     explorateur = smart_percentile(marker, all_markers)
     return explorateur
@@ -100,7 +100,7 @@ def compute_actif_score(reviews_df, comments_df, profiles_stats):
 #   Actif          : nombre de commentaires laissés + nombre de reviews laissés
 
 # Calcul des scores pour chaque composante
-def compute_markers(ref, watched_df, rating_df, reviews_df, comments_df):
+def compute_markers(quartile, watched_df, rating_df, reviews_df, comments_df):
     markers = {
         "nb_films_vus": 0,
         "ratio_peu_vus": 0,
@@ -111,7 +111,7 @@ def compute_markers(ref, watched_df, rating_df, reviews_df, comments_df):
 
     # Calcul des scores pour chaque composante
     markers["nb_films_vus"]         = compute_consommateur_marker(watched_df)
-    markers["ratio_peu_vus"]        = compute_explorateur_marker(ref, watched_df)
+    markers["ratio_peu_vus"]        = compute_explorateur_marker(quartile, watched_df)
     markers["moyenne_diff_rating"]  = compute_consensuel_marker(rating_df)
     markers["ratio_par_genre"]      = compute_eclectique_marker(watched_df)
     markers["nb_interactions"]      = compute_actif_marker(reviews_df, comments_df)
@@ -122,8 +122,8 @@ def compute_consommateur_marker(watched_df):
     marker = int(len(watched_df))
     return marker
 
-def compute_explorateur_marker(ref, watched_df):
-    marker = int(compute_categories(ref, watched_df)['number'][0] + compute_categories(ref, watched_df)['number'][1])
+def compute_explorateur_marker(quartile, watched_df):
+    marker = int(compute_categories(quartile, watched_df)['number'][0] + compute_categories(quartile, watched_df)['number'][1])
     marker = round(marker / len(watched_df), 3) if len(watched_df) > 0 else 0
     return marker
 

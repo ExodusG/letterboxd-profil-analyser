@@ -73,7 +73,7 @@ class DataHandler:
         if df_movies:
             df_movies_df = pd.DataFrame(df_movies)
             self.api_handler.add_movies_to_sheet(df_movies_df)
-            self.all_movies = pd.concat([all_movies, df_movies_df]).drop_duplicates(subset=['Title', 'Year'])
+            all_movies = pd.concat([all_movies, df_movies_df]).drop_duplicates(subset=['Title', 'Year'])
 
         my_bar.empty()
         return all_movies
@@ -117,35 +117,36 @@ class DataHandler:
                     setattr(self, attr, clean_year(getattr(self, attr)))
 
                 # Préparation des références
-                self.all_movies = pd.DataFrame(self.films_data)
-                self.all_movies = clean_year(self.all_movies)
+                all_movies = pd.DataFrame(self.films_data)
+                del self.films_data #on n'a plus besoin de cette variables en mémoire
+                all_movies = clean_year(all_movies)
 
                 self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
                 
                 # Enrichissement des références
                 if exemple is None:
-                    movie_return=self.get_films(self.all_movies, self.watched_and_watchlist, my_bar,self.api_handler.get_data_from_sheet("movie_not_dl"))
+                    movie_return=self.get_films(all_movies, self.watched_and_watchlist, my_bar,self.api_handler.get_data_from_sheet("movie_not_dl"))
                     if movie_return is not None:
-                        self.all_movies = movie_return
+                        all_movies = movie_return
                     else:
                         erreur_api()
 
-                self.all_movies = self.all_movies.drop_duplicates(subset=['Title', 'Year'])
-                self.all_movies = clean_small_films(self.all_movies)
-                self.all_movies = bind_categories(self.all_movies)
-
+                all_movies = all_movies.drop_duplicates(subset=['Title', 'Year'])
+                all_movies = clean_small_films(all_movies)
+                all_movies = bind_categories(all_movies)
+                self.quartile = compute_quantiles(all_movies)
                 # Fichiers spécfiques à l'utilisateur
                 # mg = merge = méga fichier avec tous les films et les données intéressantes
-                self.watched_mg     = pd.merge(self.watched, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
-                self.watchlist_mg   = pd.merge(self.watchlist, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
-                self.rating_mg      = pd.merge(self.rating, self.all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+                self.watched_mg     = pd.merge(self.watched, all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+                self.watchlist_mg   = pd.merge(self.watchlist, all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+                self.rating_mg      = pd.merge(self.rating, all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
 
                 self.rating_mg['Rating'] = self.rating_mg['Rating'] * 2
                 self.rating_mg = clean_imdbr(self.rating_mg)
                 self.rating_mg['diff_rating'] = self.rating_mg['Rating'] - self.rating_mg['imdbRating']
 
                 self.radar_stats = compute_radar_stats_for_sheet(
-                    self.all_movies, self.watched_mg, self.rating_mg,
+                     self.quartile, self.watched_mg, self.rating_mg,
                     self.reviews, self.comments, 
                     self.api_handler.get_data_from_sheet("profiles_stats")
                 )
@@ -167,6 +168,7 @@ class DataHandler:
             except Exception as e:
                 logging.basicConfig(level=logging.INFO)
                 logging.info(e)
+                print(e)
                 st.error(f"An error occurred: {e}", icon="⚠️")
 
     def safe_read_csv(self, file_path,file_name):
@@ -333,7 +335,7 @@ class DataHandler:
         elif key == WATCHLIST:
             habit = self.watchlist_df.copy()
 
-        result = compute_categories(self.all_movies, habit)
+        result = compute_categories(self.quartile, habit)
         result['Films'] = result['category'].apply(
             lambda x: habit[habit['category'] == x]['Title'].tolist()
         )

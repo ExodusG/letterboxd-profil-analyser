@@ -120,8 +120,8 @@ def compute_quantiles(df):
     q3 = np.quantile(clean_df['imdbVotes'], 0.50)
     return q1, q2, q3
 
-def compute_categories(ref, df):
-    q1, q2, q3 = compute_quantiles(ref)
+def compute_categories(quartile, df):
+    q1, q2, q3 = quartile
     clean_df = clean_votes(df)
 
     intervals = [
