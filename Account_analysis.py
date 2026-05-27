@@ -5,7 +5,7 @@
 import streamlit as st
 import streamlit_antd_components as sac
 import logging
-
+import os
 # modules internes
 from src.utils import *
 from src.radar_graph import *
@@ -87,15 +87,19 @@ def upload():
         accept_multiple_files=False, key=st.session_state["uploader_key"], type=["zip"],label=" "
     )
 
-    if uploaded_files is not None: 
+    if uploaded_files is not None:
+        logging.basicConfig(level=logging.INFO)
+        logging.info("NEW PASSAGE") 
         my_bar = st.progress(0, text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)")
         with my_bar:
+            os.system('cat /proc/meminfo')
             data_handler.setup_user_upload(uploaded_files, my_bar,None) 
         my_bar.empty()  # La barre disparaît après le chargement
     if uploaded_files is not None:
         st.session_state["exemple"] = 1
         general_info()
         main_interface()
+        os.system('cat /proc/meminfo')
 
 
 # MAIN INTERFACE #
