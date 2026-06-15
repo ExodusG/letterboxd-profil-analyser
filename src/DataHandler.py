@@ -118,7 +118,6 @@ class DataHandler:
 
                 # Préparation des références
                 all_movies = pd.DataFrame(self.films_data)
-                del self.films_data #on n'a plus besoin de cette variables en mémoire
                 all_movies = clean_year(all_movies)
 
                 self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
