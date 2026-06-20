@@ -8,7 +8,7 @@ from stop_words import get_stop_words
 import os
 import json
 import logging
-
+import gc
 # modules internes
 import src.WrappedGenerator as wrapped_generator
 import src.ApiHandler as api_handler
@@ -119,6 +119,10 @@ class DataHandler:
                 # Préparation des références
                 all_movies = pd.DataFrame(self.films_data)
                 all_movies = clean_year(all_movies)
+                
+                #on delete pour essayer de gagner de la mémoire
+                del self.films_data
+                gc.collect()
 
                 self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
                 

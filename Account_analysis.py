@@ -80,7 +80,6 @@ if "uploader_key" not in st.session_state:
 if "exemple" not in st.session_state: 
     st.session_state["exemple"] = 0
 
-
 def upload():
     uploaded_files = st.file_uploader(
         accept_multiple_files=False, key=st.session_state["uploader_key"], type=["zip"],label=" "
@@ -97,6 +96,10 @@ def upload():
         st.session_state["exemple"] = 1
         general_info()
         main_interface()
+    if uploaded_files is None and st.session_state["exemple"]!=0: 
+        #not smooth mais fait le job pour éviter l'erreur du del de film_datas
+        st.session_state["exemple"]=0
+        st.rerun()
 
 
 # MAIN INTERFACE #
