@@ -1,21 +1,21 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import sentry_sdk
+# import sentry_sdk
 import string
 import math
 from datetime import date
 from typing import Any, List, Tuple
 
 # Configuration de Sentry pour la gestion des erreurs
-def setup_sentry():
-    #st.page_link("pages/Compare.py", label="Compare", icon="1️⃣")
-    sentry_sdk.init(
-        # Add data like request headers and IP for users,
-        # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
-        dsn = st.secrets["dns"],
-        send_default_pii = True,
-    )
+# def setup_sentry():
+#     #st.page_link("pages/Compare.py", label="Compare", icon="1️⃣")
+#     sentry_sdk.init(
+#         # Add data like request headers and IP for users,
+#         # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+#         dsn = st.secrets["dns"],
+#         send_default_pii = True,
+#     )
 
 ## DATASET CLEANING FUNCTIONS ##
 

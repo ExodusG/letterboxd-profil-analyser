@@ -6,7 +6,6 @@ pycountry
 requests
 oauth2client
 gspread
-sentry-sdk
 wordcloud
 stop-words
 streamlit-antd-components

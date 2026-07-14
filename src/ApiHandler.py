@@ -19,7 +19,7 @@ class ApiHandler:
         self.setup_gspread_connection()
         self.get_worksheets()
         self.setup_omdb_api()
-        setup_sentry()
+        # setup_sentry()
 
     ### PARTIE GSPREAD ###
     
