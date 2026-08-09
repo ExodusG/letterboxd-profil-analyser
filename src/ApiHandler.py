@@ -10,6 +10,7 @@ import logging
 # modules internes
 from src.radar_graph import *
 from src.utils import *
+from src.db.queries.qr_movie import *
 
 class ApiHandler:
     """ Classe pour gérer les interactions avec l'API Google Sheets
@@ -34,11 +35,9 @@ class ApiHandler:
     def get_worksheets(self):
         """ Récupère les feuilles de calcul nécessaires"""
         self.spreadsheet    = self.gspread_client.open(st.secrets["sheet_name"])
-        self.films_sheet    = self.spreadsheet.worksheet("all_movies_data")
+        #self.films_sheet    = self.spreadsheet.worksheet("all_movies_data")
         self.profiles_sheet = self.spreadsheet.worksheet("profiles_stats")
-        self.error_sheet    = self.spreadsheet.worksheet("error")
-        self.film_not_dl    = self.spreadsheet.worksheet("movie_not_dl")
-        self.poll_sheet    = self.spreadsheet.worksheet("poll")
+        #self.error_sheet    = self.spreadsheet.worksheet("error")
 
     def get_data_from_sheet(self, sheet_str):
         """ Récupère les données d'une feuille de calcul"""
@@ -54,7 +53,7 @@ class ApiHandler:
         # peut ajouter chaque nouvelle ligne, plutot que tout effacer
         #sheet.clear()  # Efface l'ancienne feuille
         #sheet.update([all_movies.columns.values.tolist()] + all_movies.values.tolist())
-        self.films_sheet.append_rows(rows) 
+        #self.films_sheet.append_rows(rows) 
 
     def add_profiles_to_stats_sheet(self, profile, radar_stats):
         """ Ajoute ou met à jour les scores d'un profil dans la feuille de calcul des statistiques des profils"""
@@ -93,7 +92,7 @@ class ApiHandler:
         """Ajoute les erreurs à la feuille de calcul des erreurs"""
         if(st.secrets['prod']==True):
             cleaned_rows = df_errors.map(sanitize).values.tolist()
-            self.error_sheet.append_rows(cleaned_rows)
+            #self.error_sheet.append_rows(cleaned_rows)
 
     def get_all_means(self) :
         # Récupère les données de la feuille "profiles_stats" au format DataFrame pandas
@@ -143,8 +142,55 @@ class ApiHandler:
                 response,status_code = self.get_movie_data_by_title(title, year)
         return response,status_code
 
-    def update_poll_sheet(self, poll_df):
-        """ Met à jour la feuille de calcul des sondages avec les nouvelles données """
-        self.poll_sheet.clear()
-        #self.poll_sheet.append_rows(poll_df.values.tolist())
-        self.poll_sheet.update([poll_df.columns.values.tolist()] + poll_df.values.tolist())
+    def get_movie_not_dl(self):
+        return pd.read_csv("static/movie_not_dl.csv")
+
+    def get_movie_db(self, df):
+        return get_all_movies(df)
+    
+    def clean_response(self,value):
+        """ Convertit les valeurs du CSV en booléens Python. """
+        if pd.isna(value):
+            return None
+        if isinstance(value, bool):
+            return value
+        value = str(value).strip().upper()
+        if value == "TRUE":
+            return True
+        if value == "FALSE":
+            return False
+        return None
+    
+    def insert_movies_to_db(self, df):
+        df["imdbVotes"] = (
+        df["imdbVotes"]
+        .astype("string")
+        .str.replace(",", "", regex=False)
+        )
+
+        df["imdbVotes"] = pd.to_numeric(
+            df["imdbVotes"],
+            errors="coerce"
+        ).astype("Int64")
+
+        df["Response"] = df["Response"].apply(self.clean_response)
+
+        df["Year"] = pd.to_numeric(
+            df["Year"],
+            errors="coerce"
+        )
+        df = df.dropna(subset=["Year"])
+        df["Metascore"] = pd.to_numeric(
+            df["Metascore"],
+            errors="coerce"
+        )
+
+        df["imdbRating"] = pd.to_numeric(
+            df["imdbRating"],
+            errors="coerce"
+        )
+
+        return save_movies(df)
+    
+    def get_quantile(self):
+        return compute_quantiles()

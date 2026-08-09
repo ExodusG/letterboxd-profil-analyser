@@ -30,37 +30,38 @@ class DataHandler:
 
     def setup_worksheets_data(self):
         """ Configure les données des feuilles de calcul"""
-        self.films_data = self.api_handler.get_data_from_sheet("all_movies_data")
+        #self.films_data = self.api_handler.get_data_from_sheet("all_movies_data")
         self.profiles_data = self.api_handler.get_data_from_sheet("profiles_stats")
 
-    def get_films(self, all_movies, dfF, my_bar,movie_not_dl):
+    def get_films(self, dfF, my_bar,movie_not_dl):
         """ Récupère les films manquants dans all_movies à partir de dfF"""
         
         df_errors   = []
         df_movies   = []
         total_movies = len(dfF)
-        existing_movies = set(
-            zip(all_movies['Title'].dropna().astype(str), all_movies['Year'].dropna())
-        )
+
+        existing_movies_df,missing_movies_df = self.api_handler.get_movie_db(dfF)
+
         pairs = set(zip(movie_not_dl["Title"], movie_not_dl["Year"].astype(str)))
-        for i, (_, row) in enumerate(dfF.iterrows()):
-            title_year = (row['Name'], row['Year'])
-            if title_year not in existing_movies:
-                try:
-                    #on regarde si le film n'est pas dans la liste des films à ne pas télécharger
-                    if((row['Name'], row['Year']) in pairs):
-                        df_errors.append([self.uploaded_files.name, "Movie not dl", *row.values])
+
+
+        for i, (_, row) in enumerate(missing_movies_df.iterrows()):
+            try:
+                #on regarde si le film n'est pas dans la liste des films à ne pas télécharger
+                if((row['Name'], row['Year']) in pairs):
+                    df_errors.append([self.uploaded_files.name, "Movie not dl", *row.values])
+                else:
+                    films_data,status_code = self.api_handler.get_movie_data_by_title(row['Name'], row['Year'])
+                    if status_code ==503:
+                        return None
+                    if films_data.get('Error') is not None:
+                        df_errors.append([self.uploaded_files.name, films_data['Error'], *row.values])
                     else:
-                        films_data,status_code = self.api_handler.get_movie_data_by_title(row['Name'], row['Year'])
-                        if status_code ==503:
-                            return None
-                        if films_data.get('Error') is not None:
-                            df_errors.append([self.uploaded_files.name, films_data['Error'], *row.values])
-                        else:
-                            df_movies.append(films_data)
-                except Exception as e:
-                    # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
-                    df_errors.append([self.uploaded_files.name, str(e), *row.values])
+                        films_data['Title'] = row['Name']
+                        df_movies.append(films_data)
+            except Exception as e:
+                # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
+                df_errors.append([self.uploaded_files.name, str(e), *row.values])
             my_bar.progress(
                 int(100 * (i+1) / total_movies),
                 text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)"
@@ -72,8 +73,9 @@ class DataHandler:
 
         if df_movies:
             df_movies_df = pd.DataFrame(df_movies)
-            self.api_handler.add_movies_to_sheet(df_movies_df)
-            all_movies = pd.concat([all_movies, df_movies_df]).drop_duplicates(subset=['Title', 'Year'])
+           
+            self.api_handler.insert_movies_to_db(df_movies_df)
+            all_movies = pd.concat([existing_movies_df, df_movies_df]).drop_duplicates(subset=['Title', 'Year'])
 
         my_bar.empty()
         return all_movies
@@ -117,27 +119,25 @@ class DataHandler:
                     setattr(self, attr, clean_year(getattr(self, attr)))
 
                 # Préparation des références
-                all_movies = pd.DataFrame(self.films_data)
-                all_movies = clean_year(all_movies)
+                # all_movies = pd.DataFrame(self.films_data)
+                # all_movies = clean_year(all_movies)
                 
                 #on delete pour essayer de gagner de la mémoire
-                del self.films_data
-                gc.collect()
+                # del self.films_data
+                # gc.collect()
 
                 self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
-                
                 # Enrichissement des références
                 if exemple is None:
-                    movie_return=self.get_films(all_movies, self.watched_and_watchlist, my_bar,self.api_handler.get_data_from_sheet("movie_not_dl"))
+                    movie_return=self.get_films( self.watched_and_watchlist, my_bar,self.api_handler.get_movie_not_dl())
                     if movie_return is not None:
                         all_movies = movie_return
                     else:
                         erreur_api()
-
-                all_movies = all_movies.drop_duplicates(subset=['Title', 'Year'])
                 all_movies = clean_small_films(all_movies)
-                all_movies = bind_categories(all_movies)
-                self.quartile = compute_quantiles(all_movies)
+                self.quartile = self.api_handler.get_quantile()
+                all_movies = bind_categories(all_movies, self.quartile)
+                #self.quartile = compute_quantiles(all_movies)
                 # Fichiers spécfiques à l'utilisateur
                 # mg = merge = méga fichier avec tous les films et les données intéressantes
                 self.watched_mg     = pd.merge(self.watched, all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
@@ -679,7 +679,3 @@ class DataHandler:
     def get_wrapped(self):
         return self.wrapped_generator.generate_wrapped()
     
-    def poll(self,answer):
-        poll_df=self.api_handler.get_data_from_sheet("poll")
-        poll_df[answer]+=1
-        self.api_handler.update_poll_sheet(poll_df)

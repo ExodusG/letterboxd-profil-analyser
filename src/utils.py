@@ -140,8 +140,8 @@ def compute_categories(quartile, df):
 
 ##
 
-def bind_categories(ref):
-    q1, q2, q3 = compute_quantiles(ref)
+def bind_categories(ref,quartile):
+    q1, q2, q3 = quartile
     clean_ref = clean_votes(ref)
     clean_ref['category'] = clean_ref['imdbVotes'].apply(
         lambda x: 'Obscure' if x <= q1 else
