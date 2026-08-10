@@ -44,7 +44,6 @@ class DataHandler:
 
         pairs = set(zip(movie_not_dl["Title"], movie_not_dl["Year"].astype(str)))
 
-
         for i, (_, row) in enumerate(missing_movies_df.iterrows()):
             try:
                 #on regarde si le film n'est pas dans la liste des films à ne pas télécharger
@@ -66,16 +65,15 @@ class DataHandler:
                 int(100 * (i+1) / total_movies),
                 text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)"
             )
-
         if df_errors:
             df_errors_df = pd.DataFrame(df_errors, columns=['File', 'Error', *dfF.columns])
             self.api_handler.add_error_to_sheet(df_errors_df)
 
         if df_movies:
             df_movies_df = pd.DataFrame(df_movies)
-           
-            self.api_handler.insert_movies_to_db(df_movies_df)
-            all_movies = pd.concat([existing_movies_df, df_movies_df]).drop_duplicates(subset=['Title', 'Year'])
+            all_movies = pd.concat([existing_movies_df, df_movies_df]).drop_duplicates(subset=['title', 'year'])
+        else:
+            all_movies = existing_movies_df
 
         my_bar.empty()
         return all_movies
@@ -134,25 +132,28 @@ class DataHandler:
                         all_movies = movie_return
                     else:
                         erreur_api()
+
+                
                 all_movies = clean_small_films(all_movies)
                 self.quartile = self.api_handler.get_quantile()
                 all_movies = bind_categories(all_movies, self.quartile)
                 #self.quartile = compute_quantiles(all_movies)
                 # Fichiers spécfiques à l'utilisateur
                 # mg = merge = méga fichier avec tous les films et les données intéressantes
-                self.watched_mg     = pd.merge(self.watched, all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
-                self.watchlist_mg   = pd.merge(self.watchlist, all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
-                self.rating_mg      = pd.merge(self.rating, all_movies, how='inner', left_on=["Name", "Year"], right_on=["Title", "Year"]).drop_duplicates()
+               
+                self.watched_mg     = pd.merge(self.watched, all_movies, how='inner', left_on=["Name", "Year"], right_on=["title", "year"])
+                self.watchlist_mg   = pd.merge(self.watchlist, all_movies, how='inner', left_on=["Name", "Year"], right_on=["title", "year"])
+                self.rating_mg      = pd.merge(self.rating, all_movies, how='inner', left_on=["Name", "Year"], right_on=["title", "year"])
 
                 self.rating_mg['Rating'] = self.rating_mg['Rating'] * 2
                 self.rating_mg = clean_imdbr(self.rating_mg)
                 self.rating_mg['diff_rating'] = self.rating_mg['Rating'] - self.rating_mg['imdbRating']
 
-                self.radar_stats = compute_radar_stats_for_sheet(
-                     self.quartile, self.watched_mg, self.rating_mg,
-                    self.reviews, self.comments, 
-                    self.api_handler.get_data_from_sheet("profiles_stats")
-                )
+                # self.radar_stats = compute_radar_stats_for_sheet(
+                #      self.quartile, self.watched_mg, self.rating_mg,
+                #     self.reviews, self.comments, 
+                #     self.api_handler.get_data_from_sheet("profiles_stats")
+                # )
 
                 if(st.secrets['prod']==True):
                     self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], self.radar_stats)
@@ -168,11 +169,11 @@ class DataHandler:
                  st.session_state["exemple"] = 0
                  st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
                  st.stop()
-            except Exception as e:
-                logging.basicConfig(level=logging.INFO)
-                logging.info(e)
-                print(e)
-                st.error(f"An error occurred: {e}", icon="⚠️")
+            # except Exception as e:
+            #     logging.basicConfig(level=logging.INFO)
+            #     logging.info(e)
+            #     print(e)
+            #     st.error(f"An error occurred: {e}", icon="⚠️")
 
     def safe_read_csv(self, file_path,file_name):
         """ Lit un fichier CSV en gérant les erreurs"""
@@ -193,7 +194,7 @@ class DataHandler:
         metrics = [
             (len(self.watched_df.index), " movies", "🎬"),
             (round(computeRuntime(self.watched_df)), " hours", "🕒"),
-            (len(self.watched_df['Director'].unique()), " directors", "🎭"),
+            (len(self.watched_df['director'].unique()), " directors", "🎭"),
             (len(self.watchlist_df.index), " movies", "🎯"),
             (round(computeRuntime(self.watchlist_df)), " hours", "⏳"),
         ]
@@ -229,25 +230,25 @@ class DataHandler:
     def genre(self, key):
         """ Prépare les data pour le GraphMaker et renvoie le graphique à l'interface"""
         if key == WATCHED:
-            df_genres = self.watched_df[['Name', 'Year','Genre']].dropna()
+            df_genres = self.watched_df[['title', 'year','genre']].dropna()
         elif key == WATCHLIST:
-            df_genres = self.watchlist_df[['Name', 'Year','Genre']].dropna()
+            df_genres = self.watchlist_df[['title', 'year','genre']].dropna()
 
-        df_genres['Genre'] = df_genres['Genre'].str.split(', ')
-        df_genres_exploded = df_genres.explode('Genre')
+        df_genres['genre'] = df_genres['genre'].str.split(', ')
+        df_genres_exploded = df_genres.explode('genre')
 
         return self.graph_maker.graph_genre(df_genres_exploded)
     
     def actor(self, key):
         if key == WATCHED:
-            #nb_actor = self.watched_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+            #nb_actor = self.watched_df['actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
             df=self.watched_df.copy()
         elif key == WATCHLIST:
             df=self.watchlist_df
-            #nb_actor = self.watchlist_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+            #nb_actor = self.watchlist_df['actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
         df_exploded = (
-            df.dropna(subset=['Actors'])
-            .assign(Actor=df['Actors'].str.split(', '))
+            df.dropna(subset=['actors'])
+            .assign(Actor=df['actors'].str.split(', '))
             .explode('Actor')
         )
 
@@ -259,8 +260,8 @@ class DataHandler:
         actor_movies = (
             df_top.groupby('Actor')
             .agg(
-                Count=('Title', 'count'),
-                Movies=('Title', lambda x: ', '.join(sorted(set(x))))
+                Count=('title', 'count'),
+                Movies=('title', lambda x: ', '.join(sorted(set(x))))
             )
             .reset_index()
             .sort_values('Count', ascending=False)
@@ -271,10 +272,10 @@ class DataHandler:
 
     def director(self, key):
         if key == WATCHED:
-            nb_real = self.watched_df['Director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+            nb_real = self.watched_df['director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
         elif key == WATCHLIST:
-            nb_real = self.watchlist_df['Director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
-        nb_real.columns = ['Director', 'Number of Movies']
+            nb_real = self.watchlist_df['director'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
+        nb_real.columns = ['director', 'Number of Movies']
         if key == WATCHED:
             #nb_actor = self.watched_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
             df=self.watched_df.copy()
@@ -282,21 +283,21 @@ class DataHandler:
             df=self.watchlist_df
             #nb_actor = self.watchlist_df['Actors'].dropna().str.split(', ').explode().value_counts().head(25).reset_index()
         df_exploded = (
-            df.dropna(subset=['Director'])
-            .assign(Actor=df['Director'].str.split(', '))
-            .explode('Director')
+            df.dropna(subset=['director'])
+            .assign(Actor=df['director'].str.split(', '))
+            .explode('director')
         )
 
         # Top 25 acteurs
-        top_actors = df_exploded['Director'].value_counts().head(25).index
-        df_top = df_exploded[df_exploded['Director'].isin(top_actors)]
+        top_actors = df_exploded['director'].value_counts().head(25).index
+        df_top = df_exploded[df_exploded['director'].isin(top_actors)]
 
         # On regroupe : nb de films + titres associés
         director_movies = (
-            df_top.groupby('Director')
+            df_top.groupby('director')
             .agg(
-                Count=('Title', 'count'),
-                Movies=('Title', lambda x: ', '.join(sorted(set(x))))
+                Count=('title', 'count'),
+                Movies=('title', lambda x: ', '.join(sorted(set(x))))
             )
             .reset_index()
             .sort_values('Count', ascending=False)
@@ -315,9 +316,9 @@ class DataHandler:
         movies_rating['imdbVotes'] = movies_rating['imdbVotes'].astype(str).str.replace(',', '')
         movies_rating['imdbVotes'] = movies_rating['imdbVotes'].astype(float)
         bottom_5_votes = movies_rating.sort_values(by='imdbVotes', ascending=True).head(10)
-        bottom = bottom_5_votes[['Title', 'imdbVotes']].reset_index(drop=True)
+        bottom = bottom_5_votes[['title', 'imdbVotes']].reset_index(drop=True)
         top_5_votes = movies_rating.sort_values(by='imdbVotes', ascending=False).head(10)
-        top = top_5_votes[['Title', 'imdbVotes']].reset_index(drop=True)
+        top = top_5_votes[['title', 'imdbVotes']].reset_index(drop=True)
         return bottom, top
 
 ### CINEPHILE
@@ -340,7 +341,7 @@ class DataHandler:
 
         result = compute_categories(self.quartile, habit)
         result['Films'] = result['category'].apply(
-            lambda x: habit[habit['category'] == x]['Title'].tolist()
+            lambda x: habit[habit['category'] == x]['title'].tolist()
         )
         result['MoviesText'] = result['Films'].apply(make_movies_text)
 
@@ -371,16 +372,16 @@ class DataHandler:
         elif key == WATCHLIST:
             df = self.watchlist_df.copy()
 
-        df = df.dropna(subset=['Year']).copy()
-        df['Year'] = df['Year'].astype(int)
+        df = df.dropna(subset=['year']).copy()
+        df['year'] = df['year'].astype(int)
 
         # Calcul du bin de 5 ans
-        df['FiveYearBin'] = df['Year'].apply(lambda y: f"{(y//5)*5}-{(y//5)*5+4}")
+        df['FiveYearBin'] = df['year'].apply(lambda y: f"{(y//5)*5}-{(y//5)*5+4}")
 
         # Groupby sur la tranche de 5 ans
         grouped = (
             df.groupby('FiveYearBin')
-            .agg(Number=('Title', 'count'), Movies=('Title', list))
+            .agg(Number=('title', 'count'), Movies=('title', list))
             .reset_index()
             .sort_values('FiveYearBin')
         )
@@ -395,7 +396,7 @@ class DataHandler:
         elif key == WATCHLIST:
             df_decade = self.watchlist_df.copy()
             text = "you want to see"
-        df_decade=df_decade.sort_values('Year', ascending=True)
+        df_decade=df_decade.sort_values('year', ascending=True)
         oldest_films = df_decade.head(4)
         newest_films = df_decade.tail(4)
 
@@ -408,13 +409,13 @@ class DataHandler:
             df = self.watched_df.copy()
         elif key == WATCHLIST:
             df = self.watchlist_df.copy()
-        df = df[(df['Runtime'] >= 10) & (df['Runtime'] <= 300)]
+        df = df[(df['runtime'] >= 10) & (df['runtime'] <= 300)]
         #bins = list(range(df['Runtime'].min(), df['Runtime'].max() + 10, 10))  # Bins de 10 minutes de 0 à 300 minutes
         bins = list(range(10, 301, 10))
         labels = [f'{i}-{i+9}' for i in bins[:-1]]
-        df['RuntimeBin'] = pd.cut(df['Runtime'], bins=bins, labels=labels, right=True, include_lowest=True)
-        runtime_counts = df['RuntimeBin'].value_counts().sort_index().reset_index()
-        runtime_counts.columns = ['RuntimeBin', 'Count']
+        df['runtimeBin'] = pd.cut(df['runtime'], bins=bins, labels=labels, right=True, include_lowest=True)
+        runtime_counts = df['runtimeBin'].value_counts().sort_index().reset_index()
+        runtime_counts.columns = ['runtimeBin', 'Count']
         return self.graph_maker.graph_runtime_bar(df)
 
     def mapW(self, key):
@@ -422,11 +423,11 @@ class DataHandler:
             df_country = self.watched_df.copy()
         elif key == WATCHLIST:
             df_country = self.watchlist_df.copy()
-        df_country['Country'] = df_country['Country'].dropna().str.split(', ')
-        df_genres_exploded = df_country.explode('Country')
-        genre_counts = df_genres_exploded['Country'].value_counts().reset_index()
+        df_country['country'] = df_country['country'].dropna().str.split(', ')
+        df_genres_exploded = df_country.explode('country')
+        genre_counts = df_genres_exploded['country'].value_counts().reset_index()
         countries = {country.name: country.alpha_3 for country in pycountry.countries}
-        genre_counts['code'] = genre_counts['Country'].map(countries)
+        genre_counts['code'] = genre_counts['country'].map(countries)
         return self.graph_maker.graph_mapW(genre_counts)
 
     def mapW_div(self, country,key):
@@ -437,16 +438,16 @@ class DataHandler:
         elif key == WATCHLIST:
             df_country = self.watchlist_df.copy()
             text = "you want to watch from "
-        df_country['Country'] = df_country['Country'].dropna().str.split(', ')
-        df_genres_exploded = df_country.explode('Country')
+        df_country['country'] = df_country['country'].dropna().str.split(', ')
+        df_genres_exploded = df_country.explode('country')
         countries = {country.name: country.alpha_3 for country in pycountry.countries}
-        df_genres_exploded['code']=df_genres_exploded['Country'].map(countries)
+        df_genres_exploded['code']=df_genres_exploded['country'].map(countries)
         df_genres_exploded=df_genres_exploded[df_genres_exploded['code']==country]
         if(len(df_genres_exploded)>4):
             top_4 = df_genres_exploded.sample(4,replace=False)
         else:
             top_4 = df_genres_exploded.sample(4,replace=True)
-        text = text+top_4.Country.iloc[0]
+        text = text+top_4.country.iloc[0]
         return self.graph_maker.one_div_four_films(top_4, text)
     
     def diff_rating(self):
@@ -455,7 +456,7 @@ class DataHandler:
 
         sous_note = self.rating_df.sort_values(by=['diff_rating'])
         sous_note = sous_note.head(10).reset_index(drop=True)
-        return sur_note[['Name','Rating','imdbRating','diff_rating']], sous_note[['Name','Rating','imdbRating','diff_rating']]
+        return sur_note[['title','Rating','imdbRating','diff_rating']], sous_note[['title','Rating','imdbRating','diff_rating']]
     
     def diff_rating_test(self,key):
         match key:
@@ -480,22 +481,22 @@ class DataHandler:
         # df_plot = pd.merge(nb_films_par_director, mean_rating, on='Director')
         # Top 25 réalisateurs (par nombre de films)
         top_directors = (
-            self.rating_df['Director']
+            self.rating_df['director']
             .value_counts()
             .head(25)
             .index
         )
 
         # Filtrer uniquement ces réalisateurs
-        df_top_directors = self.rating_df[self.rating_df['Director'].isin(top_directors)]
+        df_top_directors = self.rating_df[self.rating_df['director'].isin(top_directors)]
 
         # Agrégation en une seule passe
         df_plot = (
-            df_top_directors.groupby('Director')
+            df_top_directors.groupby('director')
             .agg(
-                Nb_Films=('Title', 'count'),
+                Nb_Films=('title', 'count'),
                 Moyenne_Rating=('Rating', 'mean'),
-                Movies=('Title', lambda x: ', '.join(x))
+                Movies=('title', lambda x: ', '.join(x))
             )
             .reset_index()
             .sort_values('Nb_Films', ascending=False)
@@ -521,8 +522,8 @@ class DataHandler:
 
         # df_actor_plot = pd.merge(nb_films_par_actor, mean_rating_actor, on='Actor')
         df_exploded = (
-            self.rating_df.dropna(subset=['Actors'])
-            .assign(Actor=self.rating_df['Actors'].dropna().str.split(', '))
+            self.rating_df.dropna(subset=['actors'])
+            .assign(Actor=self.rating_df['actors'].dropna().str.split(', '))
             .explode('Actor')
         )
 
@@ -540,9 +541,9 @@ class DataHandler:
         df_actor_plot = (
             df_top_actors.groupby('Actor')
             .agg(
-                Nb_Films=('Title', 'count'),
+                Nb_Films=('title', 'count'),
                 Moyenne_Rating=('Rating', 'mean'),
-                Movies=('Title', lambda x: ', '.join(x))
+                Movies=('title', lambda x: ', '.join(x))
             )
             .reset_index()
             .sort_values('Nb_Films', ascending=False)
@@ -552,15 +553,15 @@ class DataHandler:
 
     def genre_rating(self):
         rating_local=self.rating_df.copy()
-        rating_local['Genre'] = rating_local['Genre'].dropna().str.split(', ')
-        df_genres_exploded = rating_local.explode('Genre')
-        genre_counts = df_genres_exploded['Genre'].value_counts().reset_index()
-        genre_counts.columns = ['Genre', 'Nombre de films']
+        rating_local['genre'] = rating_local['genre'].dropna().str.split(', ')
+        df_genres_exploded = rating_local.explode('genre')
+        genre_counts = df_genres_exploded['genre'].value_counts().reset_index()
+        genre_counts.columns = ['genre', 'Nombre de films']
 
-        mean_rating_genre = df_genres_exploded.groupby('Genre')['Rating'].mean().reset_index()
-        mean_rating_genre.columns = ['Genre', 'Moyenne_Rating']
+        mean_rating_genre = df_genres_exploded.groupby('genre')['Rating'].mean().reset_index()
+        mean_rating_genre.columns = ['genre', 'Moyenne_Rating']
 
-        df_genre_plot = pd.merge(genre_counts, mean_rating_genre, on='Genre')
+        df_genre_plot = pd.merge(genre_counts, mean_rating_genre, on='genre')
         return self.graph_maker.graph_genre_rating(df_genre_plot)
 
     def comparaison_rating(self):
@@ -622,8 +623,8 @@ class DataHandler:
         df_count = (
             df.groupby('Date')
             .agg(
-                count=('Title', 'size'),
-                films_list=('Title', lambda x: ', '.join(x))
+                count=('title', 'size'),
+                films_list=('title', lambda x: ', '.join(x))
             )
             .reset_index()
         )
@@ -655,25 +656,25 @@ class DataHandler:
      
     def mostCommonGenre(self):
         df_copy = self.watched_df.copy()
-        df_copy['Genre'] = df_copy['Genre'].str.split(', ')
-        df_genres_exploded = df_copy.explode('Genre')
-        counts = df_genres_exploded['Genre'].value_counts()  # nombre d'occurences
+        df_copy['genre'] = df_copy['genre'].str.split(', ')
+        df_genres_exploded = df_copy.explode('genre')
+        counts = df_genres_exploded['genre'].value_counts()  # nombre d'occurences
         most_common = counts.idxmax()
         return most_common
     
     def get_top5_titles(self):
         self.rating_df['Rating'] = pd.to_numeric(self.rating_df['Rating'], errors='coerce')
-        top5_titles = self.rating_df.nlargest(5, "Rating")["Name"].reset_index()
-        top5_titles=top5_titles['Name']
+        top5_titles = self.rating_df.nlargest(5, "Rating")["title"].reset_index()
+        top5_titles=top5_titles['title']
         return top5_titles
     
     def get_top5_directors(self):
-        top5_directors = self.rating_df.groupby("Director")["Rating"].mean().nlargest(5).reset_index()
-        top5_directors = top5_directors['Director']
+        top5_directors = self.rating_df.groupby("director")["Rating"].mean().nlargest(5).reset_index()
+        top5_directors = top5_directors['director']
         return top5_directors
     
     def get_url(self,name):
-        res = self.watched_df.loc[self.watched_df['Name'] == name, 'Poster']
+        res = self.watched_df.loc[self.watched_df['title'] == name, 'poster']
         return res.iloc[0] if not res.empty else None
     
     def get_wrapped(self):

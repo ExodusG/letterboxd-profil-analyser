@@ -175,11 +175,11 @@ class ApiHandler:
 
         df["Response"] = df["Response"].apply(self.clean_response)
 
-        df["Year"] = pd.to_numeric(
-            df["Year"],
+        df["year"] = pd.to_numeric(
+            df["year"],
             errors="coerce"
         )
-        df = df.dropna(subset=["Year"])
+        df = df.dropna(subset=["year"])
         df["Metascore"] = pd.to_numeric(
             df["Metascore"],
             errors="coerce"

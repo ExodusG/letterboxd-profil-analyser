@@ -59,11 +59,11 @@ class GraphMaker:
 
     def graph_genre(self, df) :
 
-        genre_counts = df['Genre'].value_counts().sort_index().reset_index()
-        genre_counts.columns = ['Genre', 'Count']
+        genre_counts = df['genre'].value_counts().sort_index().reset_index()
+        genre_counts.columns = ['genre', 'Count']
         genre_counts = genre_counts.sort_values('Count', ascending=False)
 
-        bins = genre_counts['Genre'].tolist()
+        bins = genre_counts['genre'].tolist()
         bin_pos = np.arange(len(bins))
         fig = go.Figure()
 
@@ -81,12 +81,12 @@ class GraphMaker:
         ))
 
         for i, bin_label in enumerate(bins):
-            sub_df = df[df['Genre'] == bin_label]
+            sub_df = df[df['genre'] == bin_label]
             if sub_df.empty:
                 continue
 
             n_points = sub_df.shape[0]
-            count = df[df['Genre'] == bin_label]['Genre'].count()
+            count = df[df['genre'] == bin_label]['genre'].count()
             # Étalement vertical des points sur toute la hauteur de la barre
             if n_points == 1:
                 y = [count/2]
@@ -107,7 +107,7 @@ class GraphMaker:
                     opacity=0.85,
                     line=dict(width=0)
                 ),
-                customdata=sub_df[['Name', 'Year']],
+                customdata=sub_df[['title', 'year']],
                 hovertemplate='<b>%{customdata[0]} (%{customdata[1]})</b><extra></extra>',
                 showlegend=False
             ))
@@ -142,10 +142,10 @@ class GraphMaker:
 
         fig = px.bar(
             df,
-            x='Director',
+            x='director',
             y='Count',
             text='Count',
-            color='Director',
+            color='director',
             color_discrete_sequence=color_seq,
             custom_data='MoviesText',
             #labels={'Director': 'Director', 'Number of Movies': 'Number of Movies'},
@@ -302,7 +302,7 @@ class GraphMaker:
         fig = go.Figure(go.Choropleth(
             locations=df["code"],
             z=df["count"],
-            text=df["Country"],
+            text=df["country"],
             colorscale=custom_scale,
             showscale=False,
             hovertemplate="<b>%{text}</b><br>%{z} films<extra></extra>"
@@ -335,10 +335,10 @@ class GraphMaker:
         color_seq = [colors[i % len(colors)] for i in range(25)]
         fig = px.bar(
             df_plot,
-            x='Director',
+            x='director',
             y='Nb_Films',
             text='Nb_Films',
-            color='Director',
+            color='director',
             color_discrete_sequence=color_seq,
             custom_data="MoviesText"
         )
@@ -374,7 +374,7 @@ class GraphMaker:
             # showlegend=False,
         )
 
-        fig.add_scatter(x=df_plot['Director'],y=df_plot['Moyenne_Rating'], name='Mean Rating',mode='lines+markers',line=dict(color=PALETTE['bleu']), marker=dict(color=PALETTE['bleu']),showlegend=True)
+        fig.add_scatter(x=df_plot['director'],y=df_plot['Moyenne_Rating'], name='Mean Rating',mode='lines+markers',line=dict(color=PALETTE['bleu']), marker=dict(color=PALETTE['bleu']),showlegend=True)
         #fig.update_layout(xaxis_tickangle=-45)
         return fig
 
@@ -430,7 +430,7 @@ class GraphMaker:
         colors = [PALETTE['vert'], PALETTE['bleu']]
         color_seq = [colors[i % len(colors)] for i in range(len(df))]
         fig.add_trace(go.Bar(
-            x=df['Genre'],
+            x=df['genre'],
             y=df['Nombre de films'],
             name='Number of movie',
             yaxis='y1',
@@ -440,7 +440,7 @@ class GraphMaker:
         ))
 
         fig.add_trace(go.Scatter(
-            x=df['Genre'],
+            x=df['genre'],
             y=df['Moyenne_Rating'],
             name='Mean rating',
             yaxis='y2',
@@ -536,10 +536,10 @@ class GraphMaker:
 
     def graph_runtime_bar(self, df):
        # Comptage par bin pour les barres de fond
-        runtime_counts = df['RuntimeBin'].value_counts().sort_index().reset_index()
-        runtime_counts.columns = ['RuntimeBin', 'Count']
+        runtime_counts = df['runtimeBin'].value_counts().sort_index().reset_index()
+        runtime_counts.columns = ['runtimeBin', 'Count']
 
-        bins = runtime_counts['RuntimeBin'].tolist()
+        bins = runtime_counts['runtimeBin'].tolist()
         bin_pos = np.arange(len(bins))
         fig = go.Figure()
 
@@ -557,7 +557,7 @@ class GraphMaker:
 
         # Swarmplot pour chaque bin
         for i, bin_label in enumerate(bins):
-            sub_df = df[df['RuntimeBin'] == bin_label]
+            sub_df = df[df['runtimeBin'] == bin_label]
             if sub_df.empty:
                 continue
 
@@ -583,7 +583,7 @@ class GraphMaker:
                     opacity=0.85,
                     line=dict(width=0)
                 ),
-                customdata=sub_df[['Title', 'Year','Runtime']],
+                customdata=sub_df[['title', 'year','runtime']],
                 hovertemplate='<b>%{customdata[0]} (%{customdata[1]})</b><br>%{customdata[2]} min<extra></extra>',
                 showlegend=False
             ))
@@ -612,12 +612,12 @@ class GraphMaker:
         return fig
     
     def movie_per_year(self, df):
-        films_par_annee = df['Year'].value_counts().sort_index()
+        films_par_annee = df['year'].value_counts().sort_index()
 
         df_par_annee = films_par_annee.reset_index()
-        df_par_annee.columns = ['Year', 'Number of Movies']
+        df_par_annee.columns = ['year', 'Number of Movies']
 
-        fig = px.line(df_par_annee, x='Year', y='Number of Movies', title='Number of movie per year')
+        fig = px.line(df_par_annee, x='year', y='Number of Movies', title='Number of movie per year')
 
         st.plotly_chart(fig)
 
@@ -675,8 +675,8 @@ class GraphMaker:
     
     def two_div_four_films(self, first_list, second_list, first_word, second_word, final_text):
 
-        first_imgs  = list(first_list['Poster'][:4]) if 'Poster' in first_list.columns else []
-        second_imgs = list(second_list['Poster'][:4]) if 'Poster' in second_list.columns else []
+        first_imgs  = list(first_list['poster'][:4]) if 'poster' in first_list.columns else []
+        second_imgs = list(second_list['poster'][:4]) if 'poster' in second_list.columns else []
 
         two_div = f"""
         <div class="two_div-flex">
@@ -686,7 +686,7 @@ class GraphMaker:
             {''.join([
                 f'<div class="two_div-poster"><img src="{img}"><span class="two_div-tooltip">{title} ({year})</span></div>'
                 if img else '<div class="two_div-poster"></div>'
-                for img, title, year in zip(first_imgs, first_list["Title"][:4], first_list["Year"][:4])
+                for img, title, year in zip(first_imgs, first_list["title"][:4], first_list["year"][:4])
             ])}
             </div>
         </div>
@@ -696,7 +696,7 @@ class GraphMaker:
             {''.join([
                 f'<div class="two_div-poster"><img src="{img}"><span class="two_div-tooltip">{title} ({year})</span></div>'
                 if img else '<div class="two_div-poster"></div>'
-                for img, title, year in zip(second_imgs, second_list["Title"][:4], second_list["Year"][:4])
+                for img, title, year in zip(second_imgs, second_list["title"][:4], second_list["year"][:4])
             ])}
             </div>
         </div>
@@ -706,8 +706,8 @@ class GraphMaker:
     
     def two_div_five_films(self, first_list, second_list, final_text):
 
-        first_imgs  = list(first_list['Poster'][:5]) if 'Poster' in first_list.columns else []
-        second_imgs = list(second_list['Poster'][:5]) if 'Poster' in second_list.columns else []
+        first_imgs  = list(first_list['poster'][:5]) if 'poster' in first_list.columns else []
+        second_imgs = list(second_list['poster'][:5]) if 'poster' in second_list.columns else []
 
         two_div = f"""
         <div class="two_div-five-flex">
@@ -717,7 +717,7 @@ class GraphMaker:
                 f'<div class="two_div-five-container"><div class="two_div-five-poster"><img src="{img}"><span class="two_div-five-tooltip">{title} ({year})</span></div>'
                 f'<div>Your rating : {rating}</div> <div>IMDB rating : {imdb_rating}</div></div>'
                 if img else '<div class="two_div-five-poster"></div>'
-                for img, title, year,rating,imdb_rating in zip(first_imgs, first_list["Title"][:5], first_list["Year"][:5],first_list["Rating"][:5],first_list["imdbRating"][:5])
+                for img, title, year,rating,imdb_rating in zip(first_imgs, first_list["title"][:5], first_list["year"][:5],first_list["Rating"][:5],first_list["imdbRating"][:5])
             ])}
             </div>
         </div>
@@ -727,7 +727,7 @@ class GraphMaker:
                 f'<div class="two_div-five-container"><div class="two_div-five-poster"><img src="{img}"><span class="two_div-five-tooltip">{title} ({year})</span></div>'
                 f'<div>Your rating : {rating}</div> <div>IMDB rating : {imdb_rating}</div></div>'
                 if img else '<div class="two_div-five-poster"></div>'
-                for img, title, year,rating,imdb_rating in zip(second_imgs, second_list["Title"][:5], second_list["Year"][:5],second_list["Rating"][:5],second_list["imdbRating"][:5])
+                for img, title, year,rating,imdb_rating in zip(second_imgs, second_list["title"][:5], second_list["year"][:5],second_list["Rating"][:5],second_list["imdbRating"][:5])
             ])}
             </div>
         </div>
@@ -737,7 +737,7 @@ class GraphMaker:
     
     def one_div_four_films(self, first_list, final_text):
 
-        first_imgs  = list(first_list['Poster'][:4]) if 'Poster' in first_list.columns else []
+        first_imgs  = list(first_list['poster'][:4]) if 'poster' in first_list.columns else []
 
         two_div = f"""
         <div class="one_div-flex">
@@ -747,7 +747,7 @@ class GraphMaker:
                 {''.join([
                     f'<div class="one_div-poster"><img src="{img}"><span class="one_div-tooltip">{title} ({year})</span></div>'
                     if img else '<div class="one_div-poster"></div>'
-                    for img, title, year in zip(first_imgs, first_list["Title"][:4], first_list["Year"][:4])
+                    for img, title, year in zip(first_imgs, first_list["title"][:4], first_list["year"][:4])
                 ])}
                 </div>
             </div>

@@ -115,14 +115,13 @@ def save_movies(df):
     if df.empty: 
         return 0 
     df = df.copy()
-    print(df)
+
     df.columns = df.columns.str[:1].str.lower() + df.columns.str[1:]
     model_columns = { column.name for column in Movie.__table__.columns } 
     df = df[ [ column for column in df.columns if column in model_columns ] ].copy()
     session = get_session()
     inserted_count = 0
-    print("bonjour")
-    print(df)
+
     try:
 
         for start in range(
