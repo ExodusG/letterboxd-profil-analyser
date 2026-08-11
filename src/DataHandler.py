@@ -26,13 +26,6 @@ class DataHandler:
         self.wrapped_generator = wrapped_generator.WrappedGenerator(self)
         self.temp_name      = self.temp_dir.name
 
-### Initialisation des données
-
-    def setup_worksheets_data(self):
-        """ Configure les données des feuilles de calcul"""
-        #self.films_data = self.api_handler.get_data_from_sheet("all_movies_data")
-        self.profiles_data = self.api_handler.get_data_from_sheet("profiles_stats")
-
     def get_films(self, dfF, my_bar,movie_not_dl):
         """ Récupère les films manquants dans all_movies à partir de dfF"""
         
@@ -59,6 +52,7 @@ class DataHandler:
                         films_data['Title'] = row['Name']
                         df_movies.append(films_data)
             except Exception as e:
+                print("error2")
                 # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
                 df_errors.append([self.uploaded_files.name, str(e), *row.values])
             my_bar.progress(
@@ -116,14 +110,6 @@ class DataHandler:
                 for attr in ['watchlist', 'watched', 'rating']:
                     setattr(self, attr, clean_year(getattr(self, attr)))
 
-                # Préparation des références
-                # all_movies = pd.DataFrame(self.films_data)
-                # all_movies = clean_year(all_movies)
-                
-                #on delete pour essayer de gagner de la mémoire
-                # del self.films_data
-                # gc.collect()
-
                 self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
                 # Enrichissement des références
                 if exemple is None:
@@ -149,14 +135,14 @@ class DataHandler:
                 self.rating_mg = clean_imdbr(self.rating_mg)
                 self.rating_mg['diff_rating'] = self.rating_mg['Rating'] - self.rating_mg['imdbRating']
 
-                # self.radar_stats = compute_radar_stats_for_sheet(
-                #      self.quartile, self.watched_mg, self.rating_mg,
-                #     self.reviews, self.comments, 
-                #     self.api_handler.get_data_from_sheet("profiles_stats")
-                # )
+                self.radar_stats = compute_radar_stats_for_sheet(
+                     self.quartile, self.watched_mg, self.rating_mg,
+                    self.reviews, self.comments, 
+                    self.api_handler.get_all_user_stats()
+                )
 
                 if(st.secrets['prod']==True):
-                    self.api_handler.add_profiles_to_stats_sheet(self.profile.iloc[0], self.radar_stats)
+                    self.api_handler.add_profiles_to_db(self.profile.iloc[0], self.radar_stats)
 
                 self.radar_means = self.api_handler.get_all_means()
 

@@ -47,13 +47,13 @@ st.set_page_config(
 
 st.markdown(main_title_and_instructions, unsafe_allow_html=True)
 
-if "setup_done" not in st.session_state: # ça évite le spinner à l'upload
-    # spinner est utilisé pour afficher un message pendant le chargement des données
-    with st.spinner("Setting-up... (this will take a few seconds)", show_time=True):
-        data_handler.setup_worksheets_data()
-    st.session_state["setup_done"] = True
-else:
-    data_handler.setup_worksheets_data()
+# if "setup_done" not in st.session_state: # ça évite le spinner à l'upload
+#     # spinner est utilisé pour afficher un message pendant le chargement des données
+#     with st.spinner("Setting-up... (this will take a few seconds)", show_time=True):
+#         #data_handler.setup_worksheets_data()
+#     st.session_state["setup_done"] = True
+# else:
+#     #data_handler.setup_worksheets_data()
 
 if "uploader_key" not in st.session_state: 
     st.session_state["uploader_key"] = 1
@@ -147,9 +147,8 @@ def general_info():
         """, unsafe_allow_html=True)
         st.info("Note: Hover over the dots for detailed insights!", icon="ℹ️")
     with col2:
-        print("Radar chart data:")
-        # fig = data_handler.radar_graph()
-        # st.plotly_chart(fig)
+        fig = data_handler.radar_graph()
+        st.plotly_chart(fig)
     st.html("<div class='spacer', style='margin-bottom: 5%;'></div>")
 
     st.subheader("Your :blue[diary]", divider=False, anchor=False, help="Almost all the charts display elements when you hover your mouse over them!")

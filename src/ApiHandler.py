@@ -8,6 +8,8 @@ import json
 import logging
 
 # modules internes
+from src.db.queries.qr_errors import add_movies_to_count
+from src.db.queries.qr_profiles import *
 from src.radar_graph import *
 from src.utils import *
 from src.db.queries.qr_movie import *
@@ -17,44 +19,14 @@ class ApiHandler:
     et les feuilles de calcul associées"""
 
     def __init__(self):
-        self.setup_gspread_connection()
-        self.get_worksheets()
         self.setup_omdb_api()
         # setup_sentry()
 
     ### PARTIE GSPREAD ###
-    
-    def setup_gspread_connection(self):
-        """ Configure la connexion à Google Sheets avec les informations d'identification du service"""
-        credentials = service_account.Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"],
-            scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        )
-        self.gspread_client = gspread.authorize(credentials)
-    
-    def get_worksheets(self):
-        """ Récupère les feuilles de calcul nécessaires"""
-        self.spreadsheet    = self.gspread_client.open(st.secrets["sheet_name"])
-        #self.films_sheet    = self.spreadsheet.worksheet("all_movies_data")
-        self.profiles_sheet = self.spreadsheet.worksheet("profiles_stats")
-        #self.error_sheet    = self.spreadsheet.worksheet("error")
 
-    def get_data_from_sheet(self, sheet_str):
-        """ Récupère les données d'une feuille de calcul"""
-        sheet = self.spreadsheet.worksheet(sheet_str)
-        data = sheet.get_all_records()
-        return pd.DataFrame(data)
-    
-    def add_movies_to_sheet(self, df_movies):
-        """ Ajoute les films à la feuille de calcul"""
-        df_movies['Ratings'] = df_movies['Ratings'].apply(lambda x: json.dumps(x) if isinstance(x, list) else x)
-        df_movies = clean_year(df_movies)
-        rows = df_movies.map(sanitize).values.tolist()
-        # peut ajouter chaque nouvelle ligne, plutot que tout effacer
-        #sheet.clear()  # Efface l'ancienne feuille
-        #sheet.update([all_movies.columns.values.tolist()] + all_movies.values.tolist())
-        #self.films_sheet.append_rows(rows) 
-
+    def add_profiles_to_db(self, profile, radar_stats):
+        """ Ajoute ou met à jour les scores d'un profil dans la base de données"""
+        add_profile_to_stats(profile, radar_stats)
     def add_profiles_to_stats_sheet(self, profile, radar_stats):
         """ Ajoute ou met à jour les scores d'un profil dans la feuille de calcul des statistiques des profils"""
         profile_id = profile['Username']
@@ -90,25 +62,30 @@ class ApiHandler:
 
     def add_error_to_sheet(self, df_errors):
         """Ajoute les erreurs à la feuille de calcul des erreurs"""
+        add_movies_to_count(df_errors)
         if(st.secrets['prod']==True):
             cleaned_rows = df_errors.map(sanitize).values.tolist()
             #self.error_sheet.append_rows(cleaned_rows)
 
+
+    def get_all_mean(self):
+        return get_global_stats()
+    
     def get_all_means(self) :
         # Récupère les données de la feuille "profiles_stats" au format DataFrame pandas
-        extraction = self.get_data_from_sheet("profiles_stats")
+        extraction = self.get_all_mean()
+
         res = {}
-        res["Consommateur"] = round(extraction["nb_films_vus"].mean())
-        res["Explorateur"] = round(extraction["ratio_peu_vus"].mean(), 2)*100
-        res["Consensuel"] = round(extraction["moyenne_diff_rating"].mean(), 3)
+        res["Consommateur"] = round(extraction["nb_films_vus"])
+        res["Explorateur"] = round(extraction["ratio_peu_vus"], 2)*100
+        res["Consensuel"] = round(extraction["moyenne_diff_rating"], 3)
 
         # Pour la colonne "ratio_par_genre", on récupère le JSON de la première ligne
-        ratio_str = extraction["ratio_par_genre"].iloc[0]
-        ratio_dict = json.loads(ratio_str)
+        ratio_dict = extraction["ratio_par_genre"]
         # Extraire uniquement le nom du premier genre (première clé) apparaissant dans le JSON
         res["Éclectique"] = next(iter(ratio_dict.keys()))
 
-        res["Actif"] = round(extraction["nb_interactions"].mean())
+        res["Actif"] = round(extraction["nb_interactions"])
 
         return res
 
@@ -131,6 +108,7 @@ class ApiHandler:
     def get_movie_data_by_title(self, title, year):
         """ Récupère les données d'un film par son titre et son année via l'API OMDB.
         Elle est utilisée quand le film n'est pas dans la feuille de calcul. Peut changer la clé API si la limite de requêtes est atteinte."""
+        year = np.int64(year)
         requestReponse = requests.get(self.base_url, params={'apikey': self.api_key_array[self.api_key_index], 't': title, 'y': year})
         response = requestReponse.json()
         status_code = requestReponse.status_code
@@ -194,3 +172,6 @@ class ApiHandler:
     
     def get_quantile(self):
         return compute_quantiles()
+
+    def get_all_user_stats(self):
+        return get_user_stats()

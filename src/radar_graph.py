@@ -60,8 +60,8 @@ def compute_eclectique_score(watched_df, profiles_stats):
 
     all_ratios = []
     for r in profiles_stats['ratio_par_genre']:
-        d = json.loads(r)
-        all_ratios.append(d)
+        #d = json.loads(r)
+        all_ratios.append(r)
     
     all_genres = set()
     for ratios in all_ratios:
@@ -132,7 +132,7 @@ def compute_consensuel_marker(rating_df):
     return marker
 
 def compute_eclectique_marker(watched_df):
-    genres_series = watched_df['Genre'].dropna().apply(lambda x: [g.strip() for g in x.split(',')])
+    genres_series = watched_df['genre'].dropna().apply(lambda x: [g.strip() for g in x.split(',')])
     exploded_genres = genres_series.explode()
     genre_counts = exploded_genres.value_counts()
     total_films = len(watched_df)

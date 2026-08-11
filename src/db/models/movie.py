@@ -4,7 +4,7 @@ from sqlalchemy import String, Integer, Float, Boolean, JSON, TEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from src.db.database import Base
-
+#TODO have a better schema for this class (at least 0NF)
 class Movie(Base):
     __tablename__ = "movies"
 

@@ -19,5 +19,6 @@ class Error(Base):
 
     nb: Mapped[int] = mapped_column(
         Integer,
-        nullable=False
+        nullable=False,
+        default=1
     )
