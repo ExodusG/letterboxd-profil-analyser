@@ -6,10 +6,10 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DATABASE_URL = URL.create(
     "postgresql+psycopg",
-    username="exoduss",
-    password="admin",
-    host="localhost",
-    database="movie",
+    username=st.secrets['db_username'],
+    password=st.secrets['db_secret'],  # plain (unescaped) text
+    host=st.secrets['db_host'],
+    database=st.secrets['db_name'],
 )
 
 

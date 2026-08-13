@@ -32,15 +32,6 @@ def get_all_movies(df):
     - Title
     - Year
     """
-
-    if df.empty:
-        return df.copy(), df.copy()
-
-
-    df["Year"] = pd.to_numeric(
-    df["Year"],
-        errors="coerce"
-    )
     # On récupère uniquement les couples Title / Year
     movie_keys = list(
         df[["Name", "Year"]]
@@ -73,23 +64,7 @@ def get_all_movies(df):
     finally:
         session.close()
 
-    df_missing = (
-        df.merge(
-            df_result[["title", "year"]],
-            left_on=["Name", "Year"],
-            right_on=["title", "year"],
-            how="left",
-            indicator=True
-        )
-    )
-
-    df_missing = df_missing[
-        df_missing["_merge"] == "left_only"
-    ].drop(
-        columns=["title", "year", "_merge"]
-    )
-    
-    return df_result, df_missing
+    return df_result
 
 def clean_value(value):
     """
@@ -112,13 +87,6 @@ def clean_value(value):
     return value
 
 def save_movies(df):
-    if df.empty: 
-        return 0 
-    df = df.copy()
-
-    df.columns = df.columns.str[:1].str.lower() + df.columns.str[1:]
-    model_columns = { column.name for column in Movie.__table__.columns } 
-    df = df[ [ column for column in df.columns if column in model_columns ] ].copy()
     session = get_session()
     inserted_count = 0
 

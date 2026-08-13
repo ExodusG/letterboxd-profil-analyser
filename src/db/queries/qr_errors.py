@@ -1,32 +1,9 @@
-import pandas as pd
 from sqlalchemy.dialects.postgresql import insert
 from src.db.database import get_session
 from src.db.models import Error
 
 
-def add_movies_to_count(df):
-
-    if df.empty:
-        return
-    # On garde uniquement les colonnes nécessaires
-    df = df[["Name", "Year"]].rename(
-        columns={
-            "Name": "title",
-            "Year": "year"
-        }
-    )
-
-    # Nettoyage
-    df["year"] = pd.to_numeric(
-        df["year"],
-        errors="coerce"
-    )
-
-    df = df.dropna(subset=["title", "year"])
-
-    df["year"] = df["year"].astype(int)
-
-    records = df.to_dict(orient="records")
+def add_error(records):
 
     session = get_session()
 

@@ -6,11 +6,11 @@ import streamlit as st
 import streamlit_antd_components as sac
 import logging
 # modules internes
-from src.utils import *
-from src.radar_graph import *
+from src.utils.utils import *
+from src.services.radar_graph import *
 import src.DataHandler as data_handler
 import streamlit_antd_components as sac
-from src.constants import WATCHED, WATCHLIST, PALETTE
+from src.utils.constants import WATCHED, WATCHLIST, PALETTE
 
 # imports CSS
 
@@ -374,11 +374,13 @@ def exemple():
                 st.session_state["exemple"] = 2 #permet de dire qu'on veut afficher l'exemple
                 st.session_state["uploader_key"] += 1 # clean le zip
                 st.rerun()
-            data_handler.setup_user_upload("", None,"./exemple/")
+            my_bar = st.progress(0, text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)")
+            data_handler.setup_user_upload("", my_bar,"./exemple/")
             general_info()
             main_interface()
         if st.session_state.get("exemple") == 2: # l'app vient de rerun depuis le bouton exemple
-            data_handler.setup_user_upload("", None,"./exemple/")
+            my_bar = st.progress(0, text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)")
+            data_handler.setup_user_upload("", my_bar,"./exemple/")
             general_info()
             main_interface()
             st.session_state["exemple"] = 0 # on remet l'état initial

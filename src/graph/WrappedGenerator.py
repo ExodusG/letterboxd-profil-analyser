@@ -6,7 +6,7 @@ from io import BytesIO
 
 # modules internes
 
-from src.utils import computeRuntime
+from src.utils.utils import computeRuntime
 
 class WrappedGenerator:
     def __init__(self,dataHandler):

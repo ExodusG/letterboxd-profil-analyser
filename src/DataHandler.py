@@ -8,32 +8,38 @@ from stop_words import get_stop_words
 import os
 import json
 import logging
-import gc
 # modules internes
-import src.WrappedGenerator as wrapped_generator
-import src.ApiHandler as api_handler
-import src.GraphMaker as graph_maker
-from src.utils import *
-from src.radar_graph import compute_radar_stats_for_sheet
-from src.constants import WATCHLIST, WATCHED
+import src.graph.WrappedGenerator as wrapped_generator
+import src.services.ApiHandler as api_handler
+import src.services.movie_service as movies_service
+import src.services.user_service as user_service
+import src.services.error_service as error_service
+import src.graph.GraphMaker as graph_maker
+from src.utils.utils import *
+from src.services.radar_graph import compute_radar_stats_for_sheet
+from src.utils.constants import WATCHLIST, WATCHED
 
 class DataHandler:
 
     def __init__(self):
         self.api_handler    = api_handler.ApiHandler()
+        self.movie_service  = movies_service.MovieService()
+        self.user_service  = user_service.UserService()
+        self.error_service  = error_service.ErrorService()
         self.graph_maker    = graph_maker.GraphMaker()
         self.temp_dir       = tempfile.TemporaryDirectory()
         self.wrapped_generator = wrapped_generator.WrappedGenerator(self)
         self.temp_name      = self.temp_dir.name
 
-    def get_films(self, dfF, my_bar,movie_not_dl):
+    def get_films(self, dfF, my_bar,movie_not_dl,upload_name):
         """ Récupère les films manquants dans all_movies à partir de dfF"""
         
         df_errors   = []
         df_movies   = []
-        total_movies = len(dfF)
 
-        existing_movies_df,missing_movies_df = self.api_handler.get_movie_db(dfF)
+        existing_movies_df,missing_movies_df = self.movie_service.get_movie_db(dfF)
+
+        total_movies = len(missing_movies_df)
 
         pairs = set(zip(movie_not_dl["Title"], movie_not_dl["Year"].astype(str)))
 
@@ -41,34 +47,34 @@ class DataHandler:
             try:
                 #on regarde si le film n'est pas dans la liste des films à ne pas télécharger
                 if((row['Name'], row['Year']) in pairs):
-                    df_errors.append([self.uploaded_files.name, "Movie not dl", *row.values])
+                    df_errors.append([upload_name, "Movie not dl", *row.values])
                 else:
                     films_data,status_code = self.api_handler.get_movie_data_by_title(row['Name'], row['Year'])
                     if status_code ==503:
                         return None
                     if films_data.get('Error') is not None:
-                        df_errors.append([self.uploaded_files.name, films_data['Error'], *row.values])
+                        df_errors.append([upload_name, films_data['Error'], *row.values])
                     else:
                         films_data['Title'] = row['Name']
                         df_movies.append(films_data)
             except Exception as e:
-                print("error2")
                 # sentry_sdk.capture_message(f"Movie not found: {row.to_dict()}")
-                df_errors.append([self.uploaded_files.name, str(e), *row.values])
+                df_errors.append([upload_name, str(e), *row.values])
+           
             my_bar.progress(
                 int(100 * (i+1) / total_movies),
                 text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)"
             )
         if df_errors:
             df_errors_df = pd.DataFrame(df_errors, columns=['File', 'Error', *dfF.columns])
-            self.api_handler.add_error_to_sheet(df_errors_df)
+            self.error_service.add_error_db(df_errors_df)
 
         if df_movies:
             df_movies_df = pd.DataFrame(df_movies)
+            self.movie_service.insert_movies_to_db(df_movies_df)
             all_movies = pd.concat([existing_movies_df, df_movies_df]).drop_duplicates(subset=['title', 'year'])
         else:
             all_movies = existing_movies_df
-
         my_bar.empty()
         return all_movies
     
@@ -91,6 +97,7 @@ class DataHandler:
                     with zipfile.ZipFile(uploaded_files, 'r') as zip_ref:
                         zip_ref.extractall(tmp_name)
                 else:
+                    self.uploaded_files=exemple
                     tmp_name=exemple
                 # Lecture des fichiers CSV attendus
                 csv_files = ['watchlist', 'watched', 'ratings', 'reviews', 'profile', 'comments']
@@ -112,18 +119,16 @@ class DataHandler:
 
                 self.watched_and_watchlist = pd.concat([self.watched, self.watchlist])
                 # Enrichissement des références
-                if exemple is None:
-                    movie_return=self.get_films( self.watched_and_watchlist, my_bar,self.api_handler.get_movie_not_dl())
-                    if movie_return is not None:
-                        all_movies = movie_return
-                    else:
-                        erreur_api()
+                movie_return=self.get_films( self.watched_and_watchlist, my_bar,self.movie_service.get_movie_not_dl(),tmp_name)
+                if movie_return is not None:
+                    all_movies = movie_return
+                else:
+                    erreur_api()
 
                 
                 all_movies = clean_small_films(all_movies)
-                self.quartile = self.api_handler.get_quantile()
+                self.quartile = self.movie_service.get_quantile()
                 all_movies = bind_categories(all_movies, self.quartile)
-                #self.quartile = compute_quantiles(all_movies)
                 # Fichiers spécfiques à l'utilisateur
                 # mg = merge = méga fichier avec tous les films et les données intéressantes
                
@@ -138,13 +143,13 @@ class DataHandler:
                 self.radar_stats = compute_radar_stats_for_sheet(
                      self.quartile, self.watched_mg, self.rating_mg,
                     self.reviews, self.comments, 
-                    self.api_handler.get_all_user_stats()
+                    self.user_service.get_all_user_stats()
                 )
 
                 if(st.secrets['prod']==True):
-                    self.api_handler.add_profiles_to_db(self.profile.iloc[0], self.radar_stats)
+                    self.user_service.add_profiles_to_db(self.profile.iloc[0], self.radar_stats)
 
-                self.radar_means = self.api_handler.get_all_means()
+                self.radar_means = self.user_service.get_all_means()
 
             except zipfile.BadZipFile:
                 st.session_state["uploader_key"] += 1
@@ -155,11 +160,11 @@ class DataHandler:
                  st.session_state["exemple"] = 0
                  st.error('A file was not found, we need all the csv files of the zipfile', icon="⚠️")
                  st.stop()
-            # except Exception as e:
-            #     logging.basicConfig(level=logging.INFO)
-            #     logging.info(e)
-            #     print(e)
-            #     st.error(f"An error occurred: {e}", icon="⚠️")
+            except Exception as e:
+                logging.basicConfig(level=logging.INFO)
+                logging.info(e)
+                print(e)
+                st.error(f"An error occurred: {e}", icon="⚠️")
 
     def safe_read_csv(self, file_path,file_name):
         """ Lit un fichier CSV en gérant les erreurs"""

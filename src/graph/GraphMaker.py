@@ -4,12 +4,12 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import src.utils as utils
+import src.utils.utils as utils
 from typing import Any, List
 from wordcloud import WordCloud
 import random
 from plotly.subplots import make_subplots
-from src.constants import PALETTE
+from src.utils.constants import PALETTE
 
 class GraphMaker:
     

@@ -1,4 +1,4 @@
-from src.utils import compute_categories
+from src.utils.utils import compute_categories
 import numpy as np
 import json
 

@@ -4,8 +4,8 @@ plotly
 dotenv
 pycountry
 requests
-oauth2client
-gspread
 wordcloud
 stop-words
 streamlit-antd-components
+psycopg[binary,pool]
+sqlalchemy
