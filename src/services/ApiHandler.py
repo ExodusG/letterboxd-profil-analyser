@@ -1,10 +1,6 @@
 # modules externes
-from google.oauth2 import service_account
 import streamlit as st
-import pandas as pd
 import requests
-import gspread
-import json
 import logging
 
 # modules internes
