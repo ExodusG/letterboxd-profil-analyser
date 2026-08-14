@@ -27,7 +27,7 @@ def sanitize(value):
 
 def clean_year(df):
     df = df[pd.to_numeric(df['Year'], errors='coerce').notna()]
-    df['Year'] = df['Year'].astype(float).astype(int).astype(str)
+    df['Year'] = df['Year'].astype(float)
     return df
 
 def clean_imdbv(df):
@@ -43,12 +43,12 @@ def clean_imdbr(df):
     return df
 
 def clean_runtime(df):
-    df['Runtime']=df['Runtime'].str.split(' ').str[0]
-    df = df[df['Runtime'].notna() & ~df['Runtime'].str.contains('s', case=False, na=True)] #remove the runtime in seconde
-    df['Runtime'] = df['Runtime'].str.replace(',', '', regex=False)
-    df['Runtime'] = df['Runtime'].apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
-    df = df.dropna(subset=['Runtime'])
-    df['Runtime'] = df['Runtime'].astype(int)
+    df['runtime']=df['runtime'].str.split(' ').str[0]
+    df = df[df['runtime'].notna() & ~df['runtime'].str.contains('s', case=False, na=True)] #remove the runtime in seconde
+    df['runtime'] = df['runtime'].str.replace(',', '', regex=False)
+    df['runtime'] = df['runtime'].apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
+    df = df.dropna(subset=['runtime'])
+    df['runtime'] = df['runtime'].astype(int)
     return df
 
 def clean_reviews(df):
@@ -86,8 +86,8 @@ def clean_small_films(df):
         return pd.DataFrame()
     clean_df = clean_votes(df)
     clean_df = clean_runtime(clean_df)
-    clean_df = clean_df[pd.to_numeric(clean_df['Runtime'], errors='coerce') >= 5]
-    mask = ~((pd.to_numeric(clean_df['Runtime'], errors='coerce') < 20) & (clean_df['imdbVotes'] < 1000))
+    clean_df = clean_df[pd.to_numeric(clean_df['runtime'], errors='coerce') >= 5]
+    mask = ~((pd.to_numeric(clean_df['runtime'], errors='coerce') < 20) & (clean_df['imdbVotes'] < 1000))
     clean_df = clean_df[mask]
     return clean_df
 
@@ -101,11 +101,11 @@ def extract_year(df, year):
     return df_year
 
 def computeRuntime(df):
-    df['Runtime']=df['Runtime'].replace('nan', np.nan)
-    df = df.dropna(subset=['Runtime'])
-    df['Runtime'] = df['Runtime'].astype(str).str.replace(r'[Ss]', '5', regex=True)
+    df['runtime']=df['runtime'].replace('nan', np.nan)
+    df = df.dropna(subset=['runtime'])
+    df['runtime'] = df['runtime'].astype(str).str.replace(r'[Ss]', '5', regex=True)
 
-    runtimeW=df['Runtime'].str.split(' ').str[0]
+    runtimeW=df['runtime'].str.split(' ').str[0]
     runtimeW = runtimeW.apply(lambda x: int(x) if x not in ['', 'N/A'] else None)
     runtimeW=runtimeW.sum() / 60
     return runtimeW
@@ -140,8 +140,8 @@ def compute_categories(quartile, df):
 
 ##
 
-def bind_categories(ref):
-    q1, q2, q3 = compute_quantiles(ref)
+def bind_categories(ref,quartile):
+    q1, q2, q3 = quartile
     clean_ref = clean_votes(ref)
     clean_ref['category'] = clean_ref['imdbVotes'].apply(
         lambda x: 'Obscure' if x <= q1 else

@@ -6,11 +6,11 @@ import streamlit as st
 import streamlit_antd_components as sac
 import logging
 # modules internes
-from src.utils import *
-from src.radar_graph import *
+from src.utils.utils import *
+from src.services.radar_graph import *
 import src.DataHandler as data_handler
 import streamlit_antd_components as sac
-from src.constants import WATCHED, WATCHLIST, PALETTE
+from src.utils.constants import WATCHED, WATCHLIST, PALETTE
 
 # imports CSS
 
@@ -31,8 +31,6 @@ with open("src/html/bottom_bar.html") as f:
     bottom_bar = f.read()
 with open("src/html/main_title_and_instructions.html") as f:
     main_title_and_instructions = f.read()
-with open("src/html/poll.html") as f:
-    poll = f.read()
 ###
 
 data_handler = data_handler.DataHandler()
@@ -45,34 +43,9 @@ st.set_page_config(
         'Report a bug': "mailto:lelan.quentin56@gmail.com",
     }
 )
-if "button_poll" not in st.session_state:
-    st.session_state["button_poll"] = False
 
-#survey
-@st.fragment
-def survey():
-    st.header("We want to know your :blue[opinion]", divider="gray", anchor=False)
-    st.html(poll)
-    st.write("Do you find it practical and are you going to use it?")
-    left, right,empty = st.columns([1, 1,10])
-    if left.button("👍 Yes", key="poll_yes",disabled=st.session_state.get("button_poll", True), width='content'):
-        st.session_state["button_poll"] = True
-        data_handler.poll("Yes")
-        st.rerun(scope="fragment")
-    if right.button("👎 No", key="poll_no",disabled=st.session_state.get("button_poll", True), width='content'):
-        st.session_state["button_poll"] = True  
-        data_handler.poll("No") 
-        st.rerun(scope="fragment")
 
 st.markdown(main_title_and_instructions, unsafe_allow_html=True)
-
-if "setup_done" not in st.session_state: # ça évite le spinner à l'upload
-    # spinner est utilisé pour afficher un message pendant le chargement des données
-    with st.spinner("Setting-up... (this will take a few seconds)", show_time=True):
-        data_handler.setup_worksheets_data()
-    st.session_state["setup_done"] = True
-else:
-    data_handler.setup_worksheets_data()
 
 if "uploader_key" not in st.session_state: 
     st.session_state["uploader_key"] = 1
@@ -135,7 +108,6 @@ def calendar():
 def general_info():
     data_handler.set_year("Alltime")
 
-    survey()
     st.markdown("""<div class="header", style="margin-top: 5%;"></div>""", unsafe_allow_html=True)
     st.header("LET'S GET :blue[STARTED] - Quick facts", divider="gray", anchor=False)
 
@@ -394,11 +366,13 @@ def exemple():
                 st.session_state["exemple"] = 2 #permet de dire qu'on veut afficher l'exemple
                 st.session_state["uploader_key"] += 1 # clean le zip
                 st.rerun()
-            data_handler.setup_user_upload("", None,"./exemple/")
+            my_bar = st.progress(0, text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)")
+            data_handler.setup_user_upload("", my_bar,"./exemple/")
             general_info()
             main_interface()
         if st.session_state.get("exemple") == 2: # l'app vient de rerun depuis le bouton exemple
-            data_handler.setup_user_upload("", None,"./exemple/")
+            my_bar = st.progress(0, text="Getting movie data, Please wait. (It's a free project, so there might be data limitations or errors in the dataset)")
+            data_handler.setup_user_upload("", my_bar,"./exemple/")
             general_info()
             main_interface()
             st.session_state["exemple"] = 0 # on remet l'état initial
