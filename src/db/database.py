@@ -10,6 +10,7 @@ DATABASE_URL = URL.create(
     password=st.secrets['db_secret'],  # plain (unescaped) text
     host=st.secrets['db_host'],
     database=st.secrets['db_name'],
+    port=5432
 )
 
 

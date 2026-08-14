@@ -47,14 +47,6 @@ st.set_page_config(
 
 st.markdown(main_title_and_instructions, unsafe_allow_html=True)
 
-# if "setup_done" not in st.session_state: # ça évite le spinner à l'upload
-#     # spinner est utilisé pour afficher un message pendant le chargement des données
-#     with st.spinner("Setting-up... (this will take a few seconds)", show_time=True):
-#         #data_handler.setup_worksheets_data()
-#     st.session_state["setup_done"] = True
-# else:
-#     #data_handler.setup_worksheets_data()
-
 if "uploader_key" not in st.session_state: 
     st.session_state["uploader_key"] = 1
 
