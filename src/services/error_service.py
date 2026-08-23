@@ -20,7 +20,7 @@ class ErrorService:
         )
     
         df = df.dropna(subset=["title", "year"])
-    
+        df = df.drop_duplicates(subset=["title", "year"])
         df["year"] = df["year"].astype(int)
     
         records = df.to_dict(orient="records")
