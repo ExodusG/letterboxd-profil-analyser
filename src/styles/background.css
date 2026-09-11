@@ -1,9 +1,9 @@
 .title-container::before {
     content: "";
     position: absolute;
-    top: 25%;
     width: 50%;
     height: 45%;
+    left: 50%;
     background-image: url("app/static/rd.jpg");
     background-size: cover;
     background-position: center top;
@@ -19,17 +19,15 @@
     background: linear-gradient(to bottom, rgba(14,17,23,0.97), rgba(14,17,23,0.99));
 }
 
-.title-container {
-    text-align: center;
-    margin-top: 2%;
-    margin-bottom: 8%;
+.title-container h1 {
     font-weight: 800;
     letter-spacing: -0.5px;
-    color : white;
-}
-
-#letterboxd-stats-analyser {
-    font-size: 8rem;
+    color : #F5F5F5;
+    font-size: 7rem;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    margin: 0px 0px 15% 0px;
+    transition: all 0.3s ease;
+    padding: 0;
 }
 
 .title_word1 {
@@ -41,18 +39,22 @@
 .title_word3 {
     color: #40BCF4;
 }
-
+.title_word4 {
+    color: #F5F5F5;
+}
 
 /* intro section */
 
 .intro-container {
     background: rgba(20, 25, 35, 0.7);
-    border-radius: 12px;
     padding: 2rem;
-    margin-bottom: 8%;
-    border-left: 4px solid #FF8C00;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-    width: 50%;
+    transition: transform 0.2s, box-shadow 0.2s;
+    color: #F5F5F5;
+}
+.intro-container:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
 .intro-container.no-margin{
@@ -61,7 +63,7 @@
 .intro-text p {
     font-size: 1.1rem;
     line-height: 1.6;
-    color: #f5f6fa;
+    color: #F5F5F5;
     margin-bottom: 1.2rem;
 }
 
@@ -86,7 +88,7 @@
 .feature-badge {
     display: inline-block;
     background: #FF8C00;
-    color: white;
+    color: #F5F5F5;
     font-weight: 600;
     padding: 0.3rem 1rem;
     border-radius: 12px;
@@ -97,7 +99,7 @@
 
 .roadmap-note {
     font-size: 0.95rem !important;
-    color: #dfe6e9;
+    color: #F5F5F5;
     font-style: italic;
     margin: 0;
     line-height: 1.4;
@@ -116,7 +118,7 @@
     font-weight: 600;
     margin-bottom: 1.5rem;
     padding-bottom: 0.5rem;
-    color: #f5f6fa;
+    color: #F5F5F5;
 }
 
 .steps-container {
@@ -142,7 +144,7 @@
 }
 
 .step-number {
-    color: white;
+    color: #F5F5F5;
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -156,10 +158,10 @@
 
 }
 .odd {
-    background: #40BCF4;
+    background: #2196F3;
 }
 .even {
-    background: #00E054;
+    background: #4CAF50;
 }
 
 .step-content {

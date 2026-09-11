@@ -44,8 +44,8 @@ st.set_page_config(
     }
 )
 
+st.markdown(main_title_and_instructions, unsafe_allow_html=True, anchors=False)
 
-st.markdown(main_title_and_instructions, unsafe_allow_html=True)
 
 if "uploader_key" not in st.session_state: 
     st.session_state["uploader_key"] = 1
@@ -54,9 +54,18 @@ if "exemple" not in st.session_state:
     st.session_state["exemple"] = 0
 
 def upload():
-    uploaded_files = st.file_uploader(
-        accept_multiple_files=False, key=st.session_state["uploader_key"], type=["zip"],label=" "
-    )
+
+    ### create the upload zone
+    ### left (~80%) : upload zone, right (~20%) : example button
+    col1, col2 = st.columns([8,2], gap="small", vertical_alignment="center")
+    with col1:
+        uploaded_files = st.file_uploader(
+            accept_multiple_files=False, key=st.session_state["uploader_key"], type=["zip"], label="Drop your Letterboxd archive below... or try the example data by clicking the button on the right side of this upload zone."
+        )
+    with col2:
+        # placeholder for the example button, which is handled in the exemple() function
+        st.session_state["example_button_slot"] = st.empty()
+
 
     if uploaded_files is not None:
         logging.basicConfig(level=logging.INFO)
@@ -73,7 +82,6 @@ def upload():
         #not smooth mais fait le job pour éviter l'erreur du del de film_datas
         st.session_state["exemple"]=0
         st.rerun()
-
 
 # MAIN INTERFACE #
 
@@ -348,17 +356,39 @@ def main_interface():
 
 #
 
-# TODO: intégrer le bouton d'upload dans le file_uploader (impossible mais à creuser)
 def exemple():
 
-    col1, col2 = st.columns([9,1], gap="small", vertical_alignment="top")
+    # add the "Try example data" button on the right side of the upload zone
     if st.session_state.get("exemple") != 1: #on affiche pas le bouton exemple si on a upload une archive
-        with col2:
+        example_button_slot = st.session_state.get("example_button_slot")
+        st.markdown(
+            """
+            <style>
+            div[data-testid="column"]:has(button[key="example_btn"]) button {
+                width: 100% !important;
+                box-sizing: border-box;
+                padding: 0.65rem 1rem;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        if example_button_slot is not None:
+            with example_button_slot:
+                btn = st.button(
+                    "Try example data",
+                    icon=":material/folder:",
+                    key="example_btn", 
+                    type="secondary",
+                    width='stretch'
+                )
+        else:
             btn = st.button(
-                "📂 Try example data",
+                "Try example data",
+                icon=":material/folder:",
                 key="example_btn", 
                 type="secondary",
-                width='content'
+                width='stretch'
             )
 
         if btn:
@@ -414,7 +444,6 @@ app()
 
 data_handler.temp_dir.cleanup()  # Nettoyage du dossier temporaire
 
+st.space(size="medium")
 st.markdown("---")
-
-#st.sidebar.title("About")
 st.html(bottom_bar)
