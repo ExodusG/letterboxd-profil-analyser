@@ -1,4 +1,4 @@
-streamlit==1.59.2
+streamlit==1.61.1
 pandas
 plotly
 dotenv
